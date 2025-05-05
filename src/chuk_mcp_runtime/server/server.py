@@ -41,12 +41,13 @@ class MCPServer:
     Manage tool discovery/registration and run the MCP server over the chosen
     transport (stdio | sse).
     """
-
+    _endpoint: str
     # ------------------------------------------------------------------ #
     # Construction                                                       #
     # ------------------------------------------------------------------ #
     def __init__(
         self,
+        endpoint: str,
         config: Dict[str, Any],
         tools_registry: Optional[Dict[str, Callable]] = None,
     ):
@@ -54,6 +55,7 @@ class MCPServer:
         self.logger = get_logger("chuk_mcp_runtime.server", config)
         self.server_name = config.get("host", {}).get("name", "generic-mcp")
         self.tools_registry = tools_registry or self._import_tools_registry()
+        self._endpoint = endpoint
 
     # ------------------------------------------------------------------ #
     # Tools discovery                                                    #
