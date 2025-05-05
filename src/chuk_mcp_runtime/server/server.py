@@ -27,7 +27,7 @@ from mcp.server.sse import SseServerTransport        # requires starlette + uvic
 
 # For SSE server
 from starlette.applications import Starlette
-from starlette.routing import Route
+from starlette.routing import Route, Mount
 import uvicorn
 
 from mcp.types import EmbeddedResource, ImageContent, TextContent, Tool
@@ -41,12 +41,13 @@ class MCPServer:
     Manage tool discovery/registration and run the MCP server over the chosen
     transport (stdio | sse).
     """
-
+    _endpoint: str
     # ------------------------------------------------------------------ #
     # Construction                                                       #
     # ------------------------------------------------------------------ #
     def __init__(
         self,
+        endpoint: str,
         config: Dict[str, Any],
         tools_registry: Optional[Dict[str, Callable]] = None,
     ):
@@ -54,6 +55,7 @@ class MCPServer:
         self.logger = get_logger("chuk_mcp_runtime.server", config)
         self.server_name = config.get("host", {}).get("name", "generic-mcp")
         self.tools_registry = tools_registry or self._import_tools_registry()
+        self._endpoint = endpoint
 
     # ------------------------------------------------------------------ #
     # Tools discovery                                                    #
@@ -154,7 +156,7 @@ class MCPServer:
             
             # Create the starlette app with routes
             from starlette.applications import Starlette
-            from starlette.responses import JSONResponse, PlainTextResponse
+            from starlette.responses import JSONResponse, PlainTextResponse, Response
             from starlette.routing import Route
             from starlette.requests import Request
             import json
@@ -162,175 +164,193 @@ class MCPServer:
             # Create the SSE transport instance
             sse_transport = SseServerTransport(msg_path)
             
-            # A mapping to track active sessions
-            active_sessions = {}
+            async def handle_sse(request: Request):
+                async with sse_transport.connect_sse(request.scope, request.receive, request._send) as streams:
+                    await server.run(streams[0], streams[1], options)
+                # Return empty response to avoid NoneType error
+                return Response()
             
-            # ASGI handler functions (using the low-level interface)
-            async def handle_sse(scope, receive, send):
-                """Handle SSE connections using the low-level ASGI interface"""
-                if scope["type"] != "http":
-                    return
-                
-                # Get session_id from query params
-                session_id = None
-                query_string = scope.get("query_string", b"").decode("utf-8")
-                if query_string:
-                    for param in query_string.split('&'):
-                        if '=' in param:
-                            key, value = param.split('=', 1)
-                            if key == "session_id":
-                                session_id = value
-                
-                if not session_id:
-                    # Generate a session ID if none provided
-                    import uuid
-                    session_id = str(uuid.uuid4())
-                
-                self.logger.debug(f"New SSE connection with session_id: {session_id}")
-                
-                # Use the SSE transport to handle this connection
-                async with sse_transport.connect_sse(scope, receive, send) as streams:
-                    # Store the session streams for later message delivery
-                    active_sessions[session_id] = streams
-                    
-                    # Keep the connection open until client disconnects or error
-                    try:
-                        # Process incoming commands from the server
-                        # Create initialization options and pass them to run
-                        await server.run(streams[0], streams[1], options)
-                    except Exception as e:
-                        self.logger.error(f"Error in SSE session {session_id}: {e}")
-                    finally:
-                        # Clean up when the connection closes
-                        if session_id in active_sessions:
-                            del active_sessions[session_id]
-                            self.logger.debug(f"Closed SSE session: {session_id}")
-            
-            async def handle_messages(scope, receive, send):
-                """Handle incoming messages using the low-level ASGI interface"""
-                if scope["type"] != "http":
-                    return
-                
-                # Process the request body
-                request_body = b""
-                more_body = True
-                
-                while more_body:
-                    message = await receive()
-                    request_body += message.get("body", b"")
-                    more_body = message.get("more_body", False)
-                
-                # Parse the JSON body
-                try:
-                    body = json.loads(request_body.decode("utf-8"))
-                except Exception as e:
-                    response = JSONResponse(
-                        {"error": f"Invalid JSON body: {str(e)}"},
-                        status_code=400
-                    )
-                    await response(scope, receive, send)
-                    return
-                
-                # Check for session_id
-                session_id = None
-                
-                # Try to get session_id from the HTTP headers
-                headers = dict(scope.get("headers", []))
-                session_id_header = headers.get(b"x-session-id", b"").decode("utf-8")
-                if session_id_header:
-                    session_id = session_id_header
-                
-                # If not in headers, try to get from the JSON payload
-                if not session_id and "id" in body:
-                    session_id = body["id"]
-                
-                if not session_id:
-                    response = PlainTextResponse(
-                        "session_id is required",
-                        status_code=400
-                    )
-                    await response(scope, receive, send)
-                    return
-                
-                # Check if the session exists
-                if session_id not in active_sessions:
-                    response = PlainTextResponse(
-                        f"No active session with id: {session_id}",
-                        status_code=404
-                    )
-                    await response(scope, receive, send)
-                    return
-                
-                # Forward the message to the correct session
-                try:
-                    # Get the writer stream from the session
-                    _, writer = active_sessions[session_id]
-                    
-                    # Create a custom object that matches the expected Pydantic model interface
-                    class PydanticLikeMessage:
-                        def __init__(self, data):
-                            self.data = data
-                            
-                        def model_dump_json(self, **kwargs):
-                            return json.dumps(self.data)
-                    
-                    # Wrap the message in our adapter class
-                    message_obj = PydanticLikeMessage(body)
-                    await writer.send(message_obj)
-                    
-                    # Send success response
-                    response = JSONResponse({"success": True, "session_id": session_id})
-                    await response(scope, receive, send)
-                except Exception as e:
-                    self.logger.error(f"Error handling message for session {session_id}: {e}")
-                    response = JSONResponse(
-                        {"error": str(e)},
-                        status_code=500
-                    )
-                    await response(scope, receive, send)
-            
-            # Function to handle 404 errors
-            async def not_found(scope, receive, send):
-                response = PlainTextResponse("Not Found", status_code=404)
-                await response(scope, receive, send)
-            
-            # Create app with routes
             routes = [
-                Route(sse_path, endpoint=handle_sse, methods=["GET"]),
-                Route(msg_path, endpoint=handle_messages, methods=["POST"]),
+                Route("/sse", endpoint=handle_sse, methods=["GET"]),
+                Mount("/messages/", app=sse_transport.handle_post_message),
             ]
             
-            # Create an ASGI app that routes based on the path
-            async def app(scope, receive, send):
-                if scope["type"] == "http":
-                    path = scope["path"]
-                    method = scope["method"]
+            starlette_app = Starlette(routes=routes)
+            
+            # uvicorn.run(starlette_app, host="0.0.0.0", port=port)
+            config = uvicorn.Config(starlette_app, host=host, port=port, log_level="info")
+            uvicorn_server = uvicorn.Server(config)
+            await uvicorn_server.serve()
+            
+            # A mapping to track active sessions
+            # active_sessions = {}
+            
+            # ASGI handler functions (using the low-level interface)
+            # async def handle_sse(scope, receive, send):
+            #     """Handle SSE connections using the low-level ASGI interface"""
+            #     if scope["type"] != "http":
+            #         return
+                
+            #     # Get session_id from query params
+            #     session_id = None
+            #     query_string = scope.get("query_string", b"").decode("utf-8")
+            #     if query_string:
+            #         for param in query_string.split('&'):
+            #             if '=' in param:
+            #                 key, value = param.split('=', 1)
+            #                 if key == "session_id":
+            #                     session_id = value
+                
+            #     if not session_id:
+            #         # Generate a session ID if none provided
+            #         import uuid
+            #         session_id = str(uuid.uuid4())
+                
+            #     self.logger.debug(f"New SSE connection with session_id: {session_id}")
+                
+            #     # Use the SSE transport to handle this connection
+            #     async with sse_transport.connect_sse(scope, receive, send) as streams:
+            #         # Store the session streams for later message delivery
+            #         active_sessions[session_id] = streams
                     
-                    # Route to the correct handler
-                    if path == sse_path and method == "GET":
-                        await handle_sse(scope, receive, send)
-                    elif path == msg_path and method == "POST":
-                        await handle_messages(scope, receive, send)
-                    else:
-                        await not_found(scope, receive, send)
-                else:
-                    # Not an HTTP request
-                    await not_found(scope, receive, send)
+            #         # Keep the connection open until client disconnects or error
+            #         try:
+            #             # Process incoming commands from the server
+            #             # Create initialization options and pass them to run
+            #             await server.run(streams[0], streams[1], options)
+            #         except Exception as e:
+            #             self.logger.error(f"Error in SSE session {session_id}: {e}")
+            #         finally:
+            #             # Clean up when the connection closes
+            #             if session_id in active_sessions:
+            #                 del active_sessions[session_id]
+            #                 self.logger.debug(f"Closed SSE session: {session_id}")
             
-            # Start the uvicorn server
-            self.logger.info(f"Starting SSE server at http://{host}:{port} "
-                             f"(SSE: {sse_path}, Messages: {msg_path})")
+            # async def handle_messages(scope, receive, send):
+            #     """Handle incoming messages using the low-level ASGI interface"""
+            #     if scope["type"] != "http":
+            #         return
+                
+            #     # Process the request body
+            #     request_body = b""
+            #     more_body = True
+                
+            #     while more_body:
+            #         message = await receive()
+            #         request_body += message.get("body", b"")
+            #         more_body = message.get("more_body", False)
+                
+            #     # Parse the JSON body
+            #     try:
+            #         body = json.loads(request_body.decode("utf-8"))
+            #     except Exception as e:
+            #         response = JSONResponse(
+            #             {"error": f"Invalid JSON body: {str(e)}"},
+            #             status_code=400
+            #         )
+            #         await response(scope, receive, send)
+            #         return
+                
+            #     # Check for session_id
+            #     session_id = None
+                
+            #     # Try to get session_id from the HTTP headers
+            #     headers = dict(scope.get("headers", []))
+            #     session_id_header = headers.get(b"x-session-id", b"").decode("utf-8")
+            #     if session_id_header:
+            #         session_id = session_id_header
+                
+            #     # If not in headers, try to get from the JSON payload
+            #     if not session_id and "id" in body:
+            #         session_id = body["id"]
+                
+            #     if not session_id:
+            #         response = PlainTextResponse(
+            #             "session_id is required",
+            #             status_code=400
+            #         )
+            #         await response(scope, receive, send)
+            #         return
+                
+            #     # Check if the session exists
+            #     if session_id not in active_sessions:
+            #         response = PlainTextResponse(
+            #             f"No active session with id: {session_id}",
+            #             status_code=404
+            #         )
+            #         await response(scope, receive, send)
+            #         return
+                
+            #     # Forward the message to the correct session
+            #     try:
+            #         # Get the writer stream from the session
+            #         _, writer = active_sessions[session_id]
+                    
+            #         # Create a custom object that matches the expected Pydantic model interface
+            #         class PydanticLikeMessage:
+            #             def __init__(self, data):
+            #                 self.data = data
+                            
+            #             def model_dump_json(self, **kwargs):
+            #                 return json.dumps(self.data)
+                    
+            #         # Wrap the message in our adapter class
+            #         message_obj = PydanticLikeMessage(body)
+            #         await writer.send(message_obj)
+                    
+            #         # Send success response
+            #         response = JSONResponse({"success": True, "session_id": session_id})
+            #         await response(scope, receive, send)
+            #     except Exception as e:
+            #         self.logger.error(f"Error handling message for session {session_id}: {e}")
+            #         response = JSONResponse(
+            #             {"error": str(e)},
+            #             status_code=500
+            #         )
+            #         await response(scope, receive, send)
             
-            config = uvicorn.Config(
-                app=app,
-                host=host,
-                port=port,
-                log_level=sse_config.get("log_level", "info").lower(),
-                access_log=sse_config.get("access_log", False),
-            )
+            # # Function to handle 404 errors
+            # async def not_found(scope, receive, send):
+            #     response = PlainTextResponse("Not Found", status_code=404)
+            #     await response(scope, receive, send)
             
-            server_instance = uvicorn.Server(config)
-            await server_instance.serve()
+            # # Create app with routes
+            # routes = [
+            #     Route(sse_path, endpoint=handle_sse, methods=["GET"]),
+            #     Route(msg_path, endpoint=handle_messages, methods=["POST"]),
+            # ]
+            
+            # # Create an ASGI app that routes based on the path
+            # async def app(scope, receive, send):
+            #     if scope["type"] == "http":
+            #         path = scope["path"]
+            #         method = scope["method"]
+                    
+            #         # Route to the correct handler
+            #         if path == sse_path and method == "GET":
+            #             await handle_sse(scope, receive, send)
+            #         elif path == msg_path and method == "POST":
+            #             await handle_messages(scope, receive, send)
+            #         else:
+            #             await not_found(scope, receive, send)
+            #     else:
+            #         # Not an HTTP request
+            #         await not_found(scope, receive, send)
+            
+            # # Start the uvicorn server
+            # self.logger.info(f"Starting SSE server at http://{host}:{port} "
+            #                  f"(SSE: {sse_path}, Messages: {msg_path})")
+            
+            # config = uvicorn.Config(
+            #     app=app,
+            #     host=host,
+            #     port=port,
+            #     log_level=sse_config.get("log_level", "info").lower(),
+            #     access_log=sse_config.get("access_log", False),
+            # )
+            
+            # server_instance = uvicorn.Server(config)
+            # await server_instance.serve()
         else:
             raise ValueError(f"Unknown server type: {srv_type!r}")
 

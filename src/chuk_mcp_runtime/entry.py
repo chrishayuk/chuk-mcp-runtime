@@ -31,7 +31,7 @@ def run_runtime(config_paths=None, default_config=None, bootstrap_components=Tru
         registry.load_server_components()
 
     # Instantiate and call serve()
-    mcp_server = MCPServer(config)
+    mcp_server = MCPServer(config=config, endpoint="/sse")
     maybe_awaitable = mcp_server.serve()
 
     # If serve() returned an awaitable (async def or AsyncMock), run it
