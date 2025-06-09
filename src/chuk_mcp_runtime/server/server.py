@@ -125,20 +125,25 @@ def parse_tool_arguments(arguments: Union[str, Dict[str, Any]]) -> Dict[str, Any
     
     # For any other type, convert to string and wrap
     return {"value": str(arguments)}
+
+
 # ------------------------------------------------------------------------------
 # Authentication middleware
 # ------------------------------------------------------------------------------
-
 class AuthMiddleware(BaseHTTPMiddleware):
     """Simple bearer-token / cookie-based auth."""
 
-    def __init__(self, app: ASGIApp, auth: Optional[str] = None) -> None:
+    def __init__(self, app: ASGIApp, auth: Optional[str] = None, health_path: Optional[str] = "/health") -> None:
         super().__init__(app)
         self.auth = auth
+        self.health_path = health_path
 
     async def dispatch(
         self, request: Request, call_next: Callable[[Request], Response]
     ) -> Response:
+        if request.url.path == self.health_path and request.method == "GET":
+            return await call_next(request)
+    
         if self.auth != "bearer":
             return await call_next(request)
 
@@ -566,6 +571,7 @@ class MCPServer:
                     Middleware(
                         AuthMiddleware,
                         auth=self.config.get("server", {}).get("auth"),
+                        health_path=health_path,
                     )
                 ],
             )
