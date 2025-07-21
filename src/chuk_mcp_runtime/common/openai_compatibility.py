@@ -70,7 +70,7 @@ async def _alias({arg_sig}):
 """
     
     loc: Dict[str, Any] = {"__default_target": target}
-    exec(src, loc)
+    exec(src, loc) # nosec B102 - Safe dynamic function creation for OpenAI compatibility
     fn = loc["_alias"]
     fn.__name__ = alias_name
     return fn

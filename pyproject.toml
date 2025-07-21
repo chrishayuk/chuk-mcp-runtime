@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chuk-mcp-runtime"
-version = "0.6.3"
+version = "0.6.4"
 description = "Generic CHUK MCP Runtime for MCP servers"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -48,6 +48,8 @@ chuk_mcp_runtime = [
 dev = [
     "mcp>=1.6.0",
     "pytest-asyncio>=0.26.0",
+    "toml>=0.10.2",
+    "tomli-w>=1.2.0",
 ]
 
 [tool.pytest.ini_options]

@@ -526,7 +526,7 @@ class MCPServer:
 
         elif mode == "sse":
             cfg = self.config.get("sse", {})
-            host, port = cfg.get("host", "0.0.0.0"), cfg.get("port", 8000)
+            host, port = cfg.get("host", "0.0.0.0"), cfg.get("port", 8000) # nosec B104 - Intentional binding for server as default
             sse_path, msg_path, health_path = cfg.get("sse_path", "/sse"), cfg.get("message_path", "/messages/"), cfg.get("health_path", "/health")
             transport = SseServerTransport(msg_path)
 
