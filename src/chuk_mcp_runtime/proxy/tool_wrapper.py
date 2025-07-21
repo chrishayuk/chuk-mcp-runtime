@@ -13,6 +13,7 @@ Wrappers are inserted into
 `chuk_mcp_runtime.common.mcp_tool_decorator.TOOLS_REGISTRY`
 via `@mcp_tool` and—if present—also into `ToolRegistryProvider`.
 """
+
 from __future__ import annotations
 
 import inspect
@@ -23,17 +24,22 @@ from typing import Any, Callable, Optional
 from chuk_mcp_runtime.common.mcp_tool_decorator import mcp_tool
 from chuk_mcp_runtime.server.logging_config import get_logger
 
-try:                                    # optional dependency
+try:  # optional dependency
     from chuk_tool_processor.registry import ToolRegistryProvider
-except ModuleNotFoundError:             # provider absent
+except ModuleNotFoundError:  # provider absent
     ToolRegistryProvider = None  # type: ignore
 
 logger = get_logger("chuk_mcp_runtime.proxy.tool_wrapper")
 
+
 # ───────────────────────── helpers ──────────────────────────
 def _meta_get(meta: Any, key: str, default: Any) -> Any:
     """Fetch *key* from dict-or-object metadata safely."""
-    return meta.get(key, default) if isinstance(meta, dict) else getattr(meta, key, default)
+    return (
+        meta.get(key, default)
+        if isinstance(meta, dict)
+        else getattr(meta, key, default)
+    )
 
 
 async def _tp_register(
@@ -46,7 +52,7 @@ async def _tp_register(
 ) -> None:
     """
     Register *tool* with ToolRegistryProvider.
-    
+
     Uses the correct parameter names based on inspection of the registry.
     """
     if not hasattr(registry, "register_tool"):
@@ -64,10 +70,11 @@ async def _tp_register(
     except Exception as exc:
         logger.debug("ToolRegistryProvider.register_tool failed: %s", exc)
 
+
 # ───────────────────────── factory ──────────────────────────
 async def create_proxy_tool(
-    namespace: str,               # e.g. "proxy.time"
-    tool_name: str,               # e.g. "get_current_time"
+    namespace: str,  # e.g. "proxy.time"
+    tool_name: str,  # e.g. "get_current_time"
     stream_manager: Any,
     metadata: Optional[Any] = None,
 ) -> Callable[..., Any]:
@@ -97,8 +104,8 @@ async def create_proxy_tool(
         return result.get("content")
 
     # attach diagnostics
-    _proxy_wrapper._proxy_server = server_name        # type: ignore[attr-defined]
-    _proxy_wrapper._proxy_metadata = metadata         # type: ignore[attr-defined]
+    _proxy_wrapper._proxy_server = server_name  # type: ignore[attr-defined]
+    _proxy_wrapper._proxy_metadata = metadata  # type: ignore[attr-defined]
 
     # optional ToolRegistryProvider registration (safe version)
     if ToolRegistryProvider is not None:

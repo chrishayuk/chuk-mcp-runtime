@@ -6,8 +6,8 @@ examples/proxy_server_example.py
 
 Proxy round-trip demo driven by *proxy_config.yaml*.
 
-• Boots the *echo2* MCP server via ``ProxyServerManager``.  
-• Prints the registry grouped by namespace.  
+• Boots the *echo2* MCP server via ``ProxyServerManager``.
+• Prints the registry grouped by namespace.
 • Calls the wrapper ``proxy.echo2.echo`` directly and shows the result.
 
 The simplified ProxyServerManager now has a single switch:
@@ -56,10 +56,10 @@ async def group_registry() -> Dict[str, List[str]]:
 
     # Get the registry using the async API
     registry = await ToolRegistryProvider.get_registry()
-    
+
     # List tools using the async API
     tools_list: List[Tuple[str, str]] = await registry.list_tools()
-    
+
     for ns, name in tools_list:
         grouped.setdefault(ns or "(no-ns)", []).append(name)
 
@@ -96,10 +96,11 @@ async def safe_execute_tool(tool: Any, **kwargs) -> Any:
             # Special case for echo - hardcode the tool name
             if server_name == "echo2":
                 tool_name = "echo"
-            
+
             print(f"Direct execution via stream manager: {server_name}.{tool_name}")
             # This avoids the wrapper that's causing recursion
             from chuk_mcp_runtime.proxy.manager import ProxyServerManager
+
             # Get the global proxy instance from our module
             proxy = globals().get("proxy")
             if proxy and hasattr(proxy, "stream_manager"):
@@ -109,7 +110,7 @@ async def safe_execute_tool(tool: Any, **kwargs) -> Any:
                     server_name=server_name,
                 )
                 return result.get("content")
-    
+
     # Default - try to call it directly
     result = tool(**kwargs)
     if inspect.isawaitable(result):
@@ -119,8 +120,8 @@ async def safe_execute_tool(tool: Any, **kwargs) -> Any:
 
 async def main() -> None:
     # Make proxy global so we can access it in safe_execute_tool
-    global proxy  
-    
+    global proxy
+
     # 1) load config (no keep_root_aliases anymore) --------------------
     config = load_config([CONFIG_YAML])
     project_root = find_project_root()
@@ -132,7 +133,7 @@ async def main() -> None:
     try:
         # Initialize OpenAI compatibility
         await initialize_openai_compatibility()
-        
+
         # 3) dump registry --------------------------------------------
         grouped = await group_registry()
         print("\n=== Registry grouped by namespace ===")
@@ -158,7 +159,9 @@ async def main() -> None:
         try:
             print("Calling echo_wrapper with 'Hello from wrapper call!'")
             # Use our safe executor to avoid recursion
-            result = await safe_execute_tool(echo_wrapper, message="Hello from wrapper call!")
+            result = await safe_execute_tool(
+                echo_wrapper, message="Hello from wrapper call!"
+            )
             print("Result ->", result)
         except Exception as e:
             print(f"Error calling echo_wrapper: {e}")

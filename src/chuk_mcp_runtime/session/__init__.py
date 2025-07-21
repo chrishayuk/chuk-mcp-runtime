@@ -2,7 +2,7 @@
 """
 Session management package for CHUK MCP Runtime.
 
-This package provides session context management and session-aware tools 
+This package provides session context management and session-aware tools
 for maintaining state across tool calls in the MCP runtime.
 
 Usage Examples
@@ -26,17 +26,14 @@ from chuk_mcp_runtime.session.session_management import (
     SessionContext,
     create_mcp_session_manager,
     create_session_manager,
-    
     # Context helpers
     require_session,
     get_session_or_none,
     get_user_or_none,
-    
     # Tool integration
     with_session_auto_inject,
     session_required,
     session_optional,
-    
     # Exceptions
     SessionError,
     SessionNotFoundError,
@@ -47,20 +44,17 @@ from chuk_mcp_runtime.session.session_management import (
 __all__ = [
     # Core session management (primary API)
     "MCPSessionManager",
-    "SessionContext", 
+    "SessionContext",
     "create_mcp_session_manager",
     "create_session_manager",
-    
     # Context functions
     "require_session",
-    "get_session_or_none", 
+    "get_session_or_none",
     "get_user_or_none",
-    
     # Tool integration
     "with_session_auto_inject",
     "session_required",
     "session_optional",
-    
     # Exceptions
     "SessionError",
     "SessionNotFoundError",

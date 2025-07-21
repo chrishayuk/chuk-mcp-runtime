@@ -3,6 +3,7 @@
 Entry point for the CHUK MCP Runtime - async-native, proxy-aware,
 with native session management and automatic chuk_artifacts integration.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -12,6 +13,7 @@ from inspect import iscoroutinefunction
 from typing import Any, Iterable, List, Optional, Tuple
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from chuk_mcp_runtime.common.mcp_tool_decorator import (
@@ -28,7 +30,7 @@ from chuk_mcp_runtime.server.server import MCPServer
 from chuk_mcp_runtime.server.server_registry import ServerRegistry
 from chuk_mcp_runtime.session.native_session_management import (
     MCPSessionManager,
-    create_mcp_session_manager
+    create_mcp_session_manager,
 )
 from chuk_mcp_runtime.tools import (
     register_session_tools,
@@ -48,9 +50,11 @@ from chuk_mcp_runtime.tools import (
 # ───────────────────────────── Configuration ──────────────────────────────
 HAS_PROXY_SUPPORT = True  # tests may override
 
+
 def _need_proxy(cfg: dict[str, Any]) -> bool:
     """Check if proxy functionality is needed and available."""
     return bool(cfg.get("proxy", {}).get("enabled")) and HAS_PROXY_SUPPORT
+
 
 # ───────────────────────────── Helper Functions ────────────────────────────
 def _iter_tools(container) -> Iterable[Tuple[str, Any]]:
@@ -61,9 +65,7 @@ def _iter_tools(container) -> Iterable[Tuple[str, Any]]:
         return
 
     if isinstance(container, dict):
-        yield from (
-            (n, f) for n, f in container.items() if hasattr(f, "_mcp_tool")
-        )
+        yield from ((n, f) for n, f in container.items() if hasattr(f, "_mcp_tool"))
     elif isinstance(container, (list, tuple, set)):
         for name in container:
             fn = TOOLS_REGISTRY.get(name) or getattr(_at_mod, name, None)
@@ -72,6 +74,7 @@ def _iter_tools(container) -> Iterable[Tuple[str, Any]]:
     else:
         logger.debug("Unexpected get_artifact_tools() return type: %s", type(container))
 
+
 # ───────────────────────────── Main Runtime Function ──────────────────────
 async def run_runtime_async(
     config_paths: Optional[List[str]] = None,
@@ -79,7 +82,7 @@ async def run_runtime_async(
     bootstrap_components: bool = True,
 ) -> None:
     """Boot the complete CHUK MCP runtime with native session management."""
-    
+
     # 1) Configuration and logging setup
     cfg = load_config(config_paths, default_config)
     configure_logging(cfg)
@@ -88,7 +91,9 @@ async def run_runtime_async(
 
     # 2) Native session management initialization
     session_manager = create_mcp_session_manager(cfg)
-    logger.info("Native session manager initialized for sandbox: %s", session_manager.sandbox_id)
+    logger.info(
+        "Native session manager initialized for sandbox: %s", session_manager.sandbox_id
+    )
 
     # 3) Optional component bootstrap
     if bootstrap_components and not os.getenv("NO_BOOTSTRAP"):
@@ -101,11 +106,11 @@ async def run_runtime_async(
     await register_artifacts_tools(cfg)
     logger.debug("Artifact tools registration completed")
 
-    # 6) Session management tools  
+    # 6) Session management tools
     # Pass the session manager to session tools
     session_cfg = cfg.copy()
     session_cfg.setdefault("session_tools", {})["session_manager"] = session_manager
-    
+
     await register_session_tools(session_cfg)
     logger.debug("Session tools registration completed")
 
@@ -126,26 +131,31 @@ async def run_runtime_async(
             proxy_mgr = ProxyServerManager(cfg, project_root)
             await proxy_mgr.start_servers()
             if proxy_mgr.running:
-                logger.debug("Proxy layer enabled - %d server(s) booted", 
-                           len(proxy_mgr.running))
+                logger.debug(
+                    "Proxy layer enabled - %d server(s) booted", len(proxy_mgr.running)
+                )
         except Exception as exc:
             logger.error("Proxy bootstrap error: %s", exc, exc_info=True)
             proxy_mgr = None
 
     # 9) Main MCP server with native session management
     mcp_server = MCPServer(cfg, tools_registry=TOOLS_REGISTRY)
-    logger.debug("Local MCP server '%s' starting with native sessions",
-                getattr(mcp_server, "server_name", "local"))
+    logger.debug(
+        "Local MCP server '%s' starting with native sessions",
+        getattr(mcp_server, "server_name", "local"),
+    )
 
     # 10) Log statistics
     tool_total = len(TOOLS_REGISTRY)
     art_related = sum(
-        1 for n in TOOLS_REGISTRY
+        1
+        for n in TOOLS_REGISTRY
         if any(kw in n for kw in ("file", "upload", "write", "read", "list"))
     )
-    logger.info("Tools in registry: %d total, %d artifact-related", 
-               tool_total, art_related)
-    
+    logger.info(
+        "Tools in registry: %d total, %d artifact-related", tool_total, art_related
+    )
+
     session_stats = session_manager.get_cache_stats()
     logger.info("Session manager stats: %s", session_stats)
 
@@ -167,6 +177,7 @@ async def run_runtime_async(
     # 13) Setup proxy text handler
     custom_handlers = None
     if proxy_mgr and hasattr(proxy_mgr, "process_text"):
+
         async def _handle_proxy_text(text: str):
             try:
                 return await proxy_mgr.process_text(text)
@@ -184,6 +195,7 @@ async def run_runtime_async(
         if proxy_mgr:
             logger.info("Stopping proxy layer")
             await proxy_mgr.stop_servers()
+
 
 # ───────────────────────────── Sync Wrapper ─────────────────────────────────
 def run_runtime(
@@ -206,6 +218,7 @@ def run_runtime(
         logger.error("Uncaught exception: %s", exc, exc_info=True)
         raise
 
+
 # ───────────────────────────── CLI Entry Points ────────────────────────────
 async def main_async(default_config: Optional[dict[str, Any]] = None) -> None:
     """Async CLI entry point."""
@@ -213,12 +226,12 @@ async def main_async(default_config: Optional[dict[str, Any]] = None) -> None:
         # Parse command line arguments for config file
         argv = sys.argv[1:]
         cfg_path = (
-            os.getenv("CHUK_MCP_CONFIG_PATH") or
-            (argv[argv.index("-c") + 1] if "-c" in argv else None) or
-            (argv[argv.index("--config") + 1] if "--config" in argv else None) or
-            (argv[0] if argv else None)
+            os.getenv("CHUK_MCP_CONFIG_PATH")
+            or (argv[argv.index("-c") + 1] if "-c" in argv else None)
+            or (argv[argv.index("--config") + 1] if "--config" in argv else None)
+            or (argv[0] if argv else None)
         )
-        
+
         await run_runtime_async(
             config_paths=[cfg_path] if cfg_path else None,
             default_config=default_config,
@@ -226,6 +239,7 @@ async def main_async(default_config: Optional[dict[str, Any]] = None) -> None:
     except Exception as exc:
         print(f"Error starting CHUK MCP server: {exc}", file=sys.stderr)
         sys.exit(1)
+
 
 def main(default_config: Optional[dict[str, Any]] = None) -> None:
     """Main CLI entry point."""
@@ -236,6 +250,7 @@ def main(default_config: Optional[dict[str, Any]] = None) -> None:
     except Exception as exc:
         logger.error("Uncaught exception: %s", exc, exc_info=True)
         sys.exit(1)
+
 
 # ───────────────────────────── Direct Execution ────────────────────────────
 if __name__ == "__main__":

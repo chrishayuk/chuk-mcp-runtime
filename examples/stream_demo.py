@@ -32,7 +32,7 @@ from chuk_mcp_runtime.common.mcp_tool_decorator import mcp_tool
 async def echo_stream(text: str, delay: float = 0.20):
     """
     Echo words with a delay between each word.
-    
+
     Args:
         text: The text to echo word by word
         delay: Delay between words in seconds
@@ -60,8 +60,7 @@ async def wait_port(host: str, port: int, timeout: float = 10.0):
 # 3  ‒  Run the SSE MCP server in-process
 # ─────────────────────────────────────────────────────────────────────────────
 async def start_server():
-    cfg = {"server": {"type": "sse"},
-           "sse":    {"host": "127.0.0.1", "port": 8111}}
+    cfg = {"server": {"type": "sse"}, "sse": {"host": "127.0.0.1", "port": 8111}}
     await MCPServer(cfg).serve()
 
 
@@ -70,28 +69,29 @@ async def start_server():
 # ─────────────────────────────────────────────────────────────────────────────
 WELCOME_RX = re.compile(r"(?:/messages/\?session_id=)?([0-9a-f]{16,})")
 
+
 async def run_client(prompt: str):
     await wait_port("127.0.0.1", 8111)
     print(f"[DEBUG] Server is ready, starting client with prompt: '{prompt}'")
 
     SSE = "http://127.0.0.1:8111/sse"
     async with httpx.AsyncClient(timeout=60.0) as client:
-
         # 4A. Connect to /sse - grab the server-issued session ID
         session_fut: asyncio.Future[str] = asyncio.Future()
         streaming_done = asyncio.Event()
 
         async def sse_reader():
             try:
-                async with client.stream("GET", SSE,
-                                         headers={"accept": "text/event-stream"}) as resp:
+                async with client.stream(
+                    "GET", SSE, headers={"accept": "text/event-stream"}
+                ) as resp:
                     print(f"[DEBUG] Connected to SSE, status: {resp.status_code}")
                     async for raw_line in resp.aiter_lines():
                         print(f"[DEBUG] SSE line: {raw_line}")
                         if not raw_line.startswith("data:"):
                             continue
                         data = raw_line[5:].strip()
-                        if not data:       # heartbeat
+                        if not data:  # heartbeat
                             continue
 
                         # First message from transport → session_id
@@ -101,20 +101,30 @@ async def run_client(prompt: str):
                             try:
                                 obj = json.loads(data)
                                 if isinstance(obj, dict) and "session_id" in obj:
-                                    print(f"[DEBUG] Found session_id in JSON: {obj['session_id']}")
+                                    print(
+                                        f"[DEBUG] Found session_id in JSON: {obj['session_id']}"
+                                    )
                                     session_fut.set_result(obj["session_id"])
                                     continue
                             except json.JSONDecodeError:
                                 pass
-                            m = WELCOME_RX.search(data)  # Changed from fullmatch to search
+                            m = WELCOME_RX.search(
+                                data
+                            )  # Changed from fullmatch to search
                             if m:
-                                print(f"[DEBUG] Found session_id via regex: {m.group(1)}")
+                                print(
+                                    f"[DEBUG] Found session_id via regex: {m.group(1)}"
+                                )
                                 session_fut.set_result(m.group(1))
                                 continue
-                            
+
                             # If it looks like a simple session ID string
-                            if len(data) >= 16 and all(c in '0123456789abcdef' for c in data):
-                                print(f"[DEBUG] Found session_id as plain string: {data}")
+                            if len(data) >= 16 and all(
+                                c in "0123456789abcdef" for c in data
+                            ):
+                                print(
+                                    f"[DEBUG] Found session_id as plain string: {data}"
+                                )
                                 session_fut.set_result(data)
                                 continue
 
@@ -131,14 +141,14 @@ async def run_client(prompt: str):
                                 streaming_done.set()
                         except json.JSONDecodeError:
                             print(f"[DEBUG] Non-JSON data: {data}")
-                            
+
             except Exception as e:
                 print(f"[ERROR] SSE reader error: {e}")
                 if not session_fut.done():
                     session_fut.set_exception(e)
 
         reader_task = asyncio.create_task(sse_reader())
-        
+
         try:
             session_id = await asyncio.wait_for(session_fut, timeout=15)
             print(f"[DEBUG] Got session ID: {session_id}")
@@ -162,19 +172,27 @@ async def run_client(prompt: str):
             print(f"[DEBUG] RPC response status: {response.status_code}")
 
         # 4C. JSON-RPC handshake
-        await rpc(1, "initialize", {
-            "protocolVersion": "2024-11-05",
-            "capabilities": {},
-            "clientInfo": {"name": "stream-demo", "version": "1.0"},
-        })
-        await rpc(None, "notifications/initialized", {})   # notification (id=None)
+        await rpc(
+            1,
+            "initialize",
+            {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {"name": "stream-demo", "version": "1.0"},
+            },
+        )
+        await rpc(None, "notifications/initialized", {})  # notification (id=None)
 
         # 4D. JSON-RPC tools/call - streaming tool
         print(f"[DEBUG] Calling tool with prompt: '{prompt}'")
-        await rpc(2, "tools/call", {
-            "name": "echo_stream",
-            "arguments": {"text": prompt, "delay": 0.5},
-        })
+        await rpc(
+            2,
+            "tools/call",
+            {
+                "name": "echo_stream",
+                "arguments": {"text": prompt, "delay": 0.5},
+            },
+        )
 
         # Wait for streaming to complete or timeout
         try:
@@ -182,7 +200,7 @@ async def run_client(prompt: str):
             print("\n[DEBUG] Streaming completed successfully")
         except asyncio.TimeoutError:
             print("\n[DEBUG] Streaming timed out")
-        
+
         reader_task.cancel()
         try:
             await reader_task
@@ -196,12 +214,12 @@ async def run_client(prompt: str):
 async def main():
     prompt = " ".join(sys.argv[1:]) or "Hello streaming world!"
     print(f"[DEBUG] Starting with prompt: '{prompt}'")
-    
+
     server_task = asyncio.create_task(start_server())
-    
+
     # Give server a moment to start
     await asyncio.sleep(1.0)
-    
+
     try:
         await run_client(prompt)
         print("\n[done]")

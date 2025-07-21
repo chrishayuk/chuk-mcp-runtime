@@ -8,6 +8,4 @@ allowing it to manage and communicate with other MCP servers.
 
 from chuk_mcp_runtime.proxy.manager import ProxyServerManager
 
-__all__ = [
-    'ProxyServerManager'
-]
+__all__ = ["ProxyServerManager"]

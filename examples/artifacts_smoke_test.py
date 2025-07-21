@@ -19,6 +19,7 @@ limitations**:
 The script prints ✅, ⚠️ or ❌ for each sub-step - all combos execute in a single
 run so you get a full overview at a glance.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -49,11 +50,14 @@ TEST_CONFIGS: List[Tuple[str, str, str]] = [
 # ---------------------------------------------------------------------------
 _tmp_root = Path(tempfile.mkdtemp(prefix="artifact_test_")).resolve()
 
+
 def _rand_bytes(n: int = 64) -> bytes:
     return os.urandom(n)
 
+
 def _rand_str(n: int = 8) -> str:
     return "".join(random.choices(string.ascii_lowercase + string.digits, k=n))
+
 
 # ---------------------------------------------------------------------------
 # Compatibility helpers
@@ -62,6 +66,7 @@ async def _patch_admin_bug(store: ArtifactStore) -> None:
     """Ensure `store._admin.store` exists (fixed in chuk_artifacts ≥0.3.6)."""
     if not hasattr(store._admin, "store"):
         store._admin.store = store  # type: ignore[attr-defined]
+
 
 async def _validate(store: ArtifactStore) -> bool:
     """Run `validate_configuration`, falling back gracefully when broken."""
@@ -75,6 +80,7 @@ async def _validate(store: ArtifactStore) -> bool:
             bucket_dir = Path(os.environ["ARTIFACT_FS_ROOT"]) / store.bucket
             return bucket_dir.exists()
         return True
+
 
 # ---------------------------------------------------------------------------
 # Core test routine
@@ -141,6 +147,7 @@ async def _basic_cycle(store: ArtifactStore, session: str):
     assert not await store.exists(aid_txt)
     print("      ✅ delete / exists OK")
 
+
 # ---------------------------------------------------------------------------
 # Single combination runner
 # ---------------------------------------------------------------------------
@@ -149,16 +156,20 @@ async def _run_combo(session_p: str, storage_p: str, description: str):
 
     bucket_name = "chuk-sandbox-2" if storage_p == "s3" else f"{storage_p}-test"
 
-    os.environ.update({
-        "ARTIFACT_SESSION_PROVIDER": session_p,
-        "ARTIFACT_STORAGE_PROVIDER": storage_p,
-        "ARTIFACT_BUCKET": bucket_name,
-        "ARTIFACT_FS_ROOT": str(_tmp_root / storage_p),
-    })
+    os.environ.update(
+        {
+            "ARTIFACT_SESSION_PROVIDER": session_p,
+            "ARTIFACT_STORAGE_PROVIDER": storage_p,
+            "ARTIFACT_BUCKET": bucket_name,
+            "ARTIFACT_FS_ROOT": str(_tmp_root / storage_p),
+        }
+    )
 
     # Ensure filesystem bucket dir exists so validation fallback is happy
     if storage_p == "filesystem":
-        (Path(os.environ["ARTIFACT_FS_ROOT"]) / bucket_name).mkdir(parents=True, exist_ok=True)
+        (Path(os.environ["ARTIFACT_FS_ROOT"]) / bucket_name).mkdir(
+            parents=True, exist_ok=True
+        )
 
     try:
         store = ArtifactStore(
@@ -189,6 +200,7 @@ async def _run_combo(session_p: str, storage_p: str, description: str):
 
     await store.close()
     print()
+
 
 # ---------------------------------------------------------------------------
 # Main entry-point

@@ -57,7 +57,7 @@ except ImportError:  # chuk_artifacts (or its wrapper) missing
             "disabled_tools": [],
             "total_tools": 0,
             "enabled_count": 0,
-            "config": {}
+            "config": {},
         }
 
     def get_enabled_artifact_tools() -> List[str]:  # noqa: D401
@@ -118,6 +118,7 @@ except ImportError:  # session tools missing
 #  Convenience helpers                                                       #
 # --------------------------------------------------------------------------- #
 
+
 def get_artifact_tools() -> List[str]:
     """Return the list of *currently* enabled artifact tools."""
     return get_enabled_artifact_tools()
@@ -147,6 +148,7 @@ ALL_TOOLS: List[str] = get_all_enabled_tools()
 # --------------------------------------------------------------------------- #
 #  Composite registration helpers - future extension point                   #
 # --------------------------------------------------------------------------- #
+
 
 async def register_all_tools(config: Dict[str, Any] | None = None) -> Dict[str, bool]:
     """Register every tool family known to this package."""
@@ -186,7 +188,7 @@ def get_all_tools_info(config: Dict[str, Any] | None = None) -> Dict[str, Any]:
 __all__ = [
     # Registration helpers
     "register_artifacts_tools",
-    "register_session_tools", 
+    "register_session_tools",
     "register_all_tools",
     # Information helpers
     "get_artifacts_tools_info",
@@ -201,7 +203,7 @@ __all__ = [
     # Tool lists
     "ALL_ARTIFACT_TOOLS",
     "ARTIFACT_TOOLS",
-    "SESSION_TOOLS", 
+    "SESSION_TOOLS",
     "ALL_TOOLS",
     # Availability flags
     "ARTIFACTS_TOOLS_AVAILABLE",

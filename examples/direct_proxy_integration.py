@@ -39,7 +39,7 @@ if __name__ == "__main__":
     # Any tweaks you want in addition to the YAML (optional)
     default_cfg = {
         "proxy": {
-            "enabled": True,          # explicit, but YAML already sets it
+            "enabled": True,  # explicit, but YAML already sets it
             # "openai_compatible": True,  # uncomment for underscore aliases
         }
     }

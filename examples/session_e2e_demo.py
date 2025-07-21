@@ -5,6 +5,7 @@ End-to-end demo that wires together **chuk_mcp_runtime**, **chuk_sessions**
 and **chuk_artifacts** via the new *session bridge* - with full tool
 registration just like the standalone artifacts demo.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -56,6 +57,7 @@ async def _enable_tools(cfg_extra: Dict[str, Any]) -> None:
 
 # ───────────────────────── helpers ─────────────────────────
 
+
 def _banner(txt: str) -> None:  # prettier output
     print("\n" + txt)
 
@@ -67,6 +69,7 @@ def _extract_id(msg: str) -> str:
 
 
 # ───────────────────────── demo logic  ─────────────────────────
+
 
 async def demo_filesystem_memory() -> None:
     """Filesystem + in-memory provider demo (earlier working version)."""
@@ -146,6 +149,7 @@ async def demo_filesystem_memory() -> None:
 
 # ───────────────────────── redis + s3 variant ─────────────────────────
 
+
 async def demo_redis_s3() -> None:
     """Same flow but using Redis for sessions and S3 (or MinIO) for storage."""
     print("\n🚀  Redis+S3 variant demo")
@@ -166,7 +170,10 @@ async def demo_redis_s3() -> None:
             "storage_provider": "s3",
             "session_provider": "redis",
             "bucket": "bridge-demo",
-            "tools": {"enabled": True, "tools": {t: {"enabled": True} for t in _ALL_TOOLS}},
+            "tools": {
+                "enabled": True,
+                "tools": {t: {"enabled": True} for t in _ALL_TOOLS},
+            },
         }
     }
 
@@ -195,6 +202,7 @@ async def demo_redis_s3() -> None:
 
 
 # ───────────────────────── CLI glue  ─────────────────────────
+
 
 async def _run():
     print("🚀  chuk_mcp_runtime × chuk_sessions end-to-end demo")

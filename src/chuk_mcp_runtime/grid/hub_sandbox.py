@@ -7,6 +7,7 @@ sandbox’s endpoint *just for that request* and closes immediately.  This
 avoids multiplexing complexity and removes back-pressure headaches.
 Registry lives in the existing SESSION_PROVIDER (memory, Redis, …).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -72,6 +73,7 @@ async def _dial(endpoint: str, transport: str):
     transport = transport.lower()
     if transport == "sse":
         from mcp.lowlevel.client import connect_sse
+
         return await connect_sse(endpoint)  # returns StreamReader / StreamWriter
 
     if transport == "stdio":
@@ -85,6 +87,7 @@ async def _dial(endpoint: str, transport: str):
 
     if transport == "ws":
         import websockets  # type: ignore
+
         uri = endpoint.replace("http://", "ws://").replace("https://", "wss://")
         ws = await websockets.connect(uri)
         reader = asyncio.StreamReader()
@@ -103,7 +106,10 @@ async def _dial(endpoint: str, transport: str):
 _HUB_ID = os.getenv("HUB_ID", os.getenv("POD_NAME", "hub"))
 
 
-@mcp_tool(name="hub.register_sandbox", description="Register a sandbox; expose its tools via proxy wrappers.")
+@mcp_tool(
+    name="hub.register_sandbox",
+    description="Register a sandbox; expose its tools via proxy wrappers.",
+)
 async def register_sandbox(
     *, sandbox_id: str, endpoint: str, transport: str = "sse"
 ) -> str:  # noqa: D401
@@ -145,7 +151,12 @@ async def register_sandbox(
         TOOLS_REGISTRY[f"{ns_root}.{tname}"] = wrapper
 
     # 3) Write/refresh registry entry
-    record = {"hub": _HUB_ID, "transport": transport, "endpoint": endpoint, "ts": int(time.time())}
+    record = {
+        "hub": _HUB_ID,
+        "transport": transport,
+        "endpoint": endpoint,
+        "ts": int(time.time()),
+    }
     await _registry_put(sandbox_id, record)
 
     logger.info("Registered %s tool(s) from sandbox %s", len(tools_meta), sandbox_id)
@@ -211,7 +222,9 @@ async def register_with_hub() -> None:
 
     async def _send_register():
         async with aiohttp.ClientSession(headers=headers) as sess:
-            async with sess.post(f"{hub_addr}/call/hub.register_sandbox", json=payload) as resp:
+            async with sess.post(
+                f"{hub_addr}/call/hub.register_sandbox", json=payload
+            ) as resp:
                 txt = await resp.text()
                 if resp.status == 200:
                     logger.info("[sandbox %s] hub: %s", sbx_id, txt)

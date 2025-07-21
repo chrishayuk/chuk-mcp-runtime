@@ -7,6 +7,7 @@ error by **explicitly enabling all artifact tools** at runtime via a temporary
 in‑memory configuration overlay (mirroring the approach used in
 `examples/artifacts_e2e_demo.py`).
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -18,6 +19,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 # ─────────────────────────────── utilities ────────────────────────────────
+
 
 def show_current_environment() -> None:
     """Print concise information about the current Python environment."""
@@ -78,7 +80,9 @@ def check_specific_imports() -> bool:
         )
         print("✅ chuk_artifacts.ArtifactStore: OK →", inst.__class__.__name__)
         for meth in ("store", "retrieve", "list_by_session", "validate_configuration"):
-            print(f"  • {meth.ljust(22)} :", "yes" if hasattr(inst, meth) else "MISSING")
+            print(
+                f"  • {meth.ljust(22)} :", "yes" if hasattr(inst, meth) else "MISSING"
+            )
     except Exception as exc:
         print(f"❌ chuk_artifacts import/usage failed: {exc}")
         return False
@@ -94,6 +98,7 @@ def check_specific_imports() -> bool:
         print(f"❌ chuk_mcp_runtime.tools import failed: {exc}")
         return False
     return True
+
 
 # ────────────────────── configuration helpers (NEW) ───────────────────────
 
@@ -128,7 +133,9 @@ async def _enable_artifact_tools(cfg_extra: Dict[str, Any]) -> None:
     base.update(cfg_extra)
     await register_artifacts_tools(base)
 
+
 # ───────────────────────── integration smoke test ─────────────────────────
+
 
 async def test_basic_integration() -> bool:  # noqa: C901 - (complexity acceptable here)
     """End‑to‑end exercise of write/read etc. now that tools are enabled."""
@@ -180,7 +187,9 @@ async def test_basic_integration() -> bool:  # noqa: C901 - (complexity acceptab
     print("🎉 Integration test completed successfully!")
     return True
 
+
 # ───────────────────────────────── main ───────────────────────────────────
+
 
 async def _main() -> None:
     print("🔧 CHUK MCP Runtime × chuk_artifacts Integration Debug (rev2)")
@@ -190,7 +199,9 @@ async def _main() -> None:
     availability = check_package_availability()
 
     if not availability.get("chuk_artifacts"):
-        print("\n⚠️  chuk_artifacts not installed → please run `pip install chuk-artifacts`.")
+        print(
+            "\n⚠️  chuk_artifacts not installed → please run `pip install chuk-artifacts`."
+        )
         return
 
     if not check_specific_imports():
@@ -203,7 +214,7 @@ async def _main() -> None:
     else:
         print("\n❌ Integration test failed — see logs above.")
 
-    print("\nDebug complete — have a nice day! \N{sparkles}")
+    print("\nDebug complete — have a nice day! \N{SPARKLES}")
 
 
 if __name__ == "__main__":

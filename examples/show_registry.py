@@ -10,6 +10,7 @@ List all MCP tools grouped by namespace, then run a quick echo round-trip.
 * Falls back to project-root `stdio_proxy_config.yaml` if the default is missing.
 * Works in both dot-name and underscore (OpenAI) modes.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -28,31 +29,32 @@ from chuk_mcp_runtime.server.config_loader import load_config, find_project_root
 from chuk_mcp_runtime.proxy.manager import ProxyServerManager
 from chuk_tool_processor.registry import ToolRegistryProvider
 
+
 # ── helpers ----------------------------------------------------------
 async def display_registry_info():
     """Display information about all registered tools by namespace."""
     # Get the registry
     registry = await ToolRegistryProvider.get_registry()
-    
+
     # Get all namespaces
     namespaces = await registry.list_namespaces()
-    
+
     print("\n=== Registry grouped by namespace ===")
     for namespace in namespaces:
         # Get tools in this namespace
         tools_in_ns = await registry.list_tools(namespace=namespace)
         tool_names = [name for _, name in tools_in_ns]
-        
+
         print(f"{namespace} ({len(tool_names)} tool(s))")
-        
+
         # Print details for each tool
         for tool_name in sorted(tool_names):
             # Get tool and metadata
             metadata = await registry.get_metadata(tool_name, namespace)
-            
+
             # Print basic info
             print(f"  • {tool_name}")
-            
+
             # Print description if available
             if metadata and hasattr(metadata, "description") and metadata.description:
                 desc = metadata.description
@@ -60,44 +62,48 @@ async def display_registry_info():
                 if len(desc) > 60:
                     desc = desc[:57] + "..."
                 print(f"    Description: {desc}")
-                
+
             # Print additional metadata if available
             if metadata and hasattr(metadata, "tags") and metadata.tags:
                 print(f"    Tags: {', '.join(metadata.tags)}")
+
 
 async def find_and_run_echo_tool(proxy):
     """Find an echo tool and run a test with it."""
     # Get all tools
     tools = await proxy.get_all_tools()
-    
+
     # Find an echo tool
     echo_tool = None
     echo_name = None
-    
+
     for name, tool in tools.items():
         if "echo" in name.lower():
             echo_tool = tool
             echo_name = name
             break
-    
+
     if not echo_tool:
         print("\n(no echo tool found for round-trip demo)")
         return
-    
+
     # Run the echo tool
     print(f"\n=== {echo_name} round-trip ===")
     try:
         # Create an instance if it's a class
         if inspect.isclass(echo_tool):
             tool_instance = echo_tool()
-            result = await tool_instance.execute(message="Hello from show_registry demo!")
+            result = await tool_instance.execute(
+                message="Hello from show_registry demo!"
+            )
         else:
             # Otherwise it's a function
             result = await echo_tool(message="Hello from show_registry demo!")
-            
+
         print("Result ->", result)
     except Exception as e:
         print(f"Error executing echo tool: {e}")
+
 
 # ── main async demo --------------------------------------------------
 async def main(config_path: str) -> None:
@@ -134,6 +140,7 @@ async def main(config_path: str) -> None:
 
     finally:
         await proxy.stop_servers()
+
 
 # ── CLI --------------------------------------------------------------
 if __name__ == "__main__":

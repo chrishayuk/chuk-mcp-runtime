@@ -15,6 +15,7 @@ Covered behaviour
 The real decorator attaches `_mcp_tool` lazily; we therefore call
 `initialize_tool_registry()` in tests that inspect those attributes.
 """
+
 from __future__ import annotations
 
 import sys
@@ -81,7 +82,7 @@ async def test_create_proxy_tool_registers_in_registry():
     stream_mgr = DummyStreamManager()
     await create_proxy_tool("proxy.time", "now", stream_mgr)
 
-    await initialize_tool_registry()          # materialise final wrapper
+    await initialize_tool_registry()  # materialise final wrapper
 
     dotted = "proxy.time.now"
     assert dotted in TOOLS_REGISTRY
@@ -130,6 +131,7 @@ async def test_metadata_description_is_used():
     wrapper = TOOLS_REGISTRY["proxy.clock.utc_now"]
     assert wrapper._mcp_tool.description == "Return the current UTC time."
 
+
 # ---------------------------------------------------------------------------#
 # 5) ToolRegistryProvider integration (optional dependency)
 # ---------------------------------------------------------------------------#
@@ -148,9 +150,7 @@ async def test_toolregistryprovider_registration(monkeypatch):
     async def get_registry():
         return FakeRegistry()
 
-    FakeProvider = type(
-        "TP", (), {"get_registry": staticmethod(get_registry)}
-    )
+    FakeProvider = type("TP", (), {"get_registry": staticmethod(get_registry)})
     monkeypatch.setattr(tw, "ToolRegistryProvider", FakeProvider, raising=False)
 
     stream_mgr = DummyStreamManager()

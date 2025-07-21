@@ -33,8 +33,8 @@ from chuk_mcp_runtime.proxy.manager import ProxyServerManager
 from chuk_mcp_runtime.server.config_loader import load_config
 from chuk_tool_processor.registry import ToolRegistryProvider
 from chuk_mcp_runtime.common.openai_compatibility import (
-    OpenAIToolsAdapter, 
-    initialize_openai_compatibility
+    OpenAIToolsAdapter,
+    initialize_openai_compatibility,
 )
 from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY
 
@@ -44,7 +44,7 @@ async def fresh_registry() -> None:
     """Wipe the global ToolRegistryProvider (so no stale dot tools remain)."""
     # Get the registry using the async API
     reg = await ToolRegistryProvider.get_registry()
-    
+
     # Try to clear the registry
     if hasattr(reg, "clear") and asyncio.iscoroutinefunction(reg.clear):
         await reg.clear()  # type: ignore[attr-defined]
@@ -130,7 +130,7 @@ async def demo(only_openai_tools: bool, debug: bool) -> None:
         # Explicitly initialize OpenAI compatibility
         await initialize_openai_compatibility()
         LOG.info("Initialized OpenAI compatibility")
-        
+
         # Get tools - now with async method
         tools = await proxy.get_all_tools()  # underscore aliases only
         print(f"\nproxy.get_all_tools() → {len(tools)}")
@@ -140,7 +140,7 @@ async def demo(only_openai_tools: bool, debug: bool) -> None:
         # ── call the two tools correctly ──────────────────────────────
         # Adjust tool names based on what we find in the registry
         print("\n• demo calls")
-        
+
         # Find the current time tool
         get_time_tool = None
         get_time_name = None
@@ -151,7 +151,7 @@ async def demo(only_openai_tools: bool, debug: bool) -> None:
                 print(f"  Found get_current_time tool as: {name}")
                 print(f"  Tool type: {type(tool).__name__}")
                 break
-        
+
         if get_time_tool:
             try:
                 res_now = await execute_tool(get_time_tool, timezone="America/New_York")
@@ -160,7 +160,7 @@ async def demo(only_openai_tools: bool, debug: bool) -> None:
                 print(f"  ❌ Error executing {get_time_name}: {e}")
         else:
             print("  ❌ get_current_time tool not found")
-        
+
         # Find the convert time tool
         convert_tool = None
         convert_name = None
@@ -171,7 +171,7 @@ async def demo(only_openai_tools: bool, debug: bool) -> None:
                 print(f"  Found convert_time tool as: {name}")
                 print(f"  Tool type: {type(convert_tool).__name__}")
                 break
-                
+
         if convert_tool:
             try:
                 res_conv = await execute_tool(
@@ -188,22 +188,24 @@ async def demo(only_openai_tools: bool, debug: bool) -> None:
 
         # ── OpenAI schema dump ────────────────────────────────────────
         adapter = OpenAIToolsAdapter()
-        
+
         # Show underscore tools in TOOLS_REGISTRY
         print("\n• TOOLS_REGISTRY underscore tools")
         underscore_tools = [
-            (name, fn) 
-            for name, fn in TOOLS_REGISTRY.items() 
+            (name, fn)
+            for name, fn in TOOLS_REGISTRY.items()
             if "_" in name and "." not in name and hasattr(fn, "_mcp_tool")
         ]
         print(f"  Found {len(underscore_tools)} underscore tools in TOOLS_REGISTRY")
-        
+
         for name, fn in sorted(underscore_tools):
             meta = fn._mcp_tool  # type: ignore[attr-defined]
             print(f"  • {name}")
             print(f"    Description: {meta.description}")
-            print(f"    Schema: {len(meta.inputSchema.get('properties', {}))} properties")
-        
+            print(
+                f"    Schema: {len(meta.inputSchema.get('properties', {}))} properties"
+            )
+
         # Show OpenAI schemas
         print("\n• OpenAI schema generation")
         schemas = await adapter.get_openai_tools_definition()
@@ -211,7 +213,9 @@ async def demo(only_openai_tools: bool, debug: bool) -> None:
         for schema in schemas:
             print(f"  • {schema['function']['name']}")
             print(f"    Description: {schema['function']['description']}")
-            print(f"    Parameters: {len(schema['function'].get('parameters', {}).get('properties', {}))} properties")
+            print(
+                f"    Parameters: {len(schema['function'].get('parameters', {}).get('properties', {}))} properties"
+            )
 
     finally:
         await proxy.stop_servers()

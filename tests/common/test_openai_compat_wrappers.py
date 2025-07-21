@@ -6,6 +6,7 @@ We register a tool using dot notation (``wikipedia.search``), then run
 ``initialize_openai_compatibility()`` and verify that an underscore
 alias (``wikipedia_search``) appears and behaves identically.
 """
+
 from __future__ import annotations
 
 import types
@@ -58,7 +59,9 @@ def _stub_toolregistryprovider(monkeypatch):
         "TP", (), {"get_registry": staticmethod(get_registry)}
     )
 
-    sys.modules.setdefault("chuk_tool_processor", types.ModuleType("chuk_tool_processor"))
+    sys.modules.setdefault(
+        "chuk_tool_processor", types.ModuleType("chuk_tool_processor")
+    )
     sys.modules["chuk_tool_processor.registry"] = fake_mod
     monkeypatch.setitem(
         sys.modules["chuk_mcp_runtime.common.openai_compatibility"].__dict__,

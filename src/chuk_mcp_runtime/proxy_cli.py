@@ -24,6 +24,7 @@ chuk-mcp-proxy --config proxy_config.yaml \
 # Enable OpenAI-style names (underscores)
 chuk-mcp-proxy --openai-compatible
 """
+
 from __future__ import annotations
 
 import argparse
@@ -45,30 +46,47 @@ from chuk_mcp_runtime.server.logging_config import configure_logging
 # ─────────────────── CLI parsing ────────────────────
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Launch the CHUK proxy layer.")
-    p.add_argument("--config", metavar="FILE",
-                   help="YAML config file (optional - can be combined with flags below)")
+    p.add_argument(
+        "--config",
+        metavar="FILE",
+        help="YAML config file (optional - can be combined with flags below)",
+    )
 
     # declare servers
-    p.add_argument("--stdio", action="append", metavar="NAME",
-                   help="add a local stdio MCP server (repeatable)")
-    p.add_argument("--sse", action="append", metavar="NAME",
-                   help="add a remote SSE MCP server (repeatable)")
+    p.add_argument(
+        "--stdio",
+        action="append",
+        metavar="NAME",
+        help="add a local stdio MCP server (repeatable)",
+    )
+    p.add_argument(
+        "--sse",
+        action="append",
+        metavar="NAME",
+        help="add a remote SSE MCP server (repeatable)",
+    )
 
     # stdio options
-    p.add_argument("--command", default="python",
-                   help="executable for stdio servers (default: python)")
-    p.add_argument("--cwd", default="",
-                   help="working directory for stdio server")
-    p.add_argument("--args", nargs=argparse.REMAINDER,
-                   help="additional args for the stdio command")
+    p.add_argument(
+        "--command",
+        default="python",
+        help="executable for stdio servers (default: python)",
+    )
+    p.add_argument("--cwd", default="", help="working directory for stdio server")
+    p.add_argument(
+        "--args", nargs=argparse.REMAINDER, help="additional args for the stdio command"
+    )
 
     # sse options
     p.add_argument("--url", help="SSE base URL")
     p.add_argument("--api-key", help="SSE API key (or set API_KEY env var)")
 
     # proxy format option
-    p.add_argument("--openai-compatible", action="store_true",
-                   help="use OpenAI-compatible tool names (underscores)")
+    p.add_argument(
+        "--openai-compatible",
+        action="store_true",
+        help="use OpenAI-compatible tool names (underscores)",
+    )
 
     return p.parse_args()
 

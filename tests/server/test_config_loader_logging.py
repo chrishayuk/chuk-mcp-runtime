@@ -3,6 +3,7 @@ import sys
 import pytest
 from chuk_mcp_runtime.server import config_loader
 
+
 def test_logging_to_stderr(tmp_path, monkeypatch, caplog, capsys):
     """
     Verify that logging messages from config_loader appear on stderr.
@@ -27,7 +28,6 @@ def test_logging_to_stderr(tmp_path, monkeypatch, caplog, capsys):
     # Verify that nothing was written to stdout.
     captured = capsys.readouterr()
     assert captured.out == ""
-
 
 
 def test_default_config_returned_when_no_files(monkeypatch):

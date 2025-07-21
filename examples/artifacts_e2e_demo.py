@@ -13,6 +13,7 @@ Changes in this revision
   built-in stats call fails.
 * Tidier logging.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -45,6 +46,7 @@ _CFG_EXTRA: Dict[str, Any] = {
     }
 }
 
+
 # ───────────────────────── helper to enable tools ───────────────────────────
 async def _enable_tools() -> None:
     from chuk_mcp_runtime.tools import register_artifacts_tools
@@ -52,6 +54,7 @@ async def _enable_tools() -> None:
     cfg = load_config(["config.yaml"], default_config={})
     cfg.update(_CFG_EXTRA)
     await register_artifacts_tools(cfg)
+
 
 # ───────────────────────── demo per session ─────────────────────────────────
 async def _demo_session(sid: str) -> None:
@@ -65,7 +68,9 @@ async def _demo_session(sid: str) -> None:
 
     print(f"\n✨ Session {sid}")
 
-    res_create = await write_file(content=f"Hello from {sid}!", filename="hello.txt", session_id=sid)
+    res_create = await write_file(
+        content=f"Hello from {sid}!", filename="hello.txt", session_id=sid
+    )
     aid = re.search(r"artifact id: (\w+)", res_create, flags=re.I).group(1)  # type: ignore[arg-type]
     print("  • write_file →", aid)
 
@@ -85,10 +90,14 @@ async def _demo_session(sid: str) -> None:
     after = await list_session_files(session_id=sid)
     print("  • list_session_files →", len(after), "file(s) after copy")
 
+
 # ───────────────────────── stats + optional presign ─────────────────────────
 async def _safe_stats(sid: str) -> Dict[str, Any]:
     """Return stats dict; fall back to manual calc when provider API fails."""
-    from chuk_mcp_runtime.tools.artifacts_tools import get_storage_stats, list_session_files
+    from chuk_mcp_runtime.tools.artifacts_tools import (
+        get_storage_stats,
+        list_session_files,
+    )
 
     try:
         return await get_storage_stats(session_id=sid)
@@ -101,21 +110,28 @@ async def _safe_stats(sid: str) -> Dict[str, Any]:
             "storage_provider": "filesystem (fallback)",
         }
 
+
 async def _demo_stats(sid_a: str, sid_b: str) -> None:
-    from chuk_mcp_runtime.tools.artifacts_tools import get_presigned_url, list_session_files
+    from chuk_mcp_runtime.tools.artifacts_tools import (
+        get_presigned_url,
+        list_session_files,
+    )
 
     stats_a = await _safe_stats(sid_a)
     stats_b = await _safe_stats(sid_b)
 
     print("\n📊 Storage stats")
     for tag, st in ((sid_a, stats_a), (sid_b, stats_b)):
-        print(f"   {tag}: {st['session_file_count']} file(s), {st['session_total_bytes']} bytes")
+        print(
+            f"   {tag}: {st['session_file_count']} file(s), {st['session_total_bytes']} bytes"
+        )
 
     # presign if backend supports it (not for filesystem)
     if stats_a.get("storage_provider") not in {"filesystem", "memory"}:
         first_id = (await list_session_files(session_id=sid_a))[0]["artifact_id"]
         url = await get_presigned_url(first_id, session_id=sid_a, expires_in="short")
         print("\n🔗 Presigned URL (short) →", url)
+
 
 # ───────────────────────── main runner ──────────────────────────────────────
 async def _run() -> None:
@@ -135,6 +151,7 @@ async def _run() -> None:
 
     await _enable_tools()
     from chuk_mcp_runtime.tools import get_artifact_tools
+
     print("✅ Tools enabled →", ", ".join(sorted(get_artifact_tools())))
 
     await _demo_session("alpha")
@@ -143,11 +160,18 @@ async def _run() -> None:
 
     print("\n🎉 Demo completed successfully")
 
+
 # ───────────────────────── CLI glue ─────────────────────────────────────────
+
 
 def _cleanup() -> None:
     shutil.rmtree(_TMP, ignore_errors=True)
-    for v in ("ARTIFACT_FS_ROOT", "ARTIFACT_STORAGE_PROVIDER", "ARTIFACT_SESSION_PROVIDER", "ARTIFACT_BUCKET"):
+    for v in (
+        "ARTIFACT_FS_ROOT",
+        "ARTIFACT_STORAGE_PROVIDER",
+        "ARTIFACT_SESSION_PROVIDER",
+        "ARTIFACT_BUCKET",
+    ):
         os.environ.pop(v, None)
 
 

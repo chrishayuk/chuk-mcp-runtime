@@ -20,6 +20,7 @@ Run from the project root:
 
     uv run examples/runtime_sandbox_demo.py
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -37,14 +38,14 @@ load_dotenv()
 from chuk_mcp_runtime.session.session_bridge import get_session_manager
 import chuk_mcp_runtime.session.session_bridge as bridge
 from chuk_artifacts import ArtifactStore
-from chuk_artifacts.config import configure_memory   # keep the demo self-contained
+from chuk_artifacts.config import configure_memory  # keep the demo self-contained
 
 
 # ─────────────────── helper to flush the singleton ──────────────────
 def _reset_session_manager() -> None:
     """Forget the cached SessionManager so the next call sees fresh env-vars."""
     bridge._manager = None
-    importlib.reload(bridge)           # rebuild helper funcs (optional)
+    importlib.reload(bridge)  # rebuild helper funcs (optional)
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -73,7 +74,7 @@ async def demo_case(
     _reset_session_manager()
 
     # create components exactly like the runtime would
-    mgr = get_session_manager()                         # picks up env vars now
+    mgr = get_session_manager()  # picks up env vars now
     store = ArtifactStore(sandbox_id=sandbox_id_param)  # explicit override if given
 
     # allocate session + store tiny artifact

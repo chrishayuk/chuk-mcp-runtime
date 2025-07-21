@@ -3,7 +3,7 @@
 CHUK MCP Server
 
 * automatic session-ID injection for artifact tools via native session management
-* optional bearer-token auth middleware  
+* optional bearer-token auth middleware
 * transparent chuk_artifacts integration
 * global **and per-tool** timeout support
 * end-to-end **token streaming** for async-generator tools
@@ -58,7 +58,7 @@ from chuk_mcp_runtime.session.native_session_management import (
     create_mcp_session_manager,
     require_session,
     get_session_or_none,
-    SessionError
+    SessionError,
 )
 
 # ─────────────────────────── chuk_artifacts integration ──────────────────────
@@ -68,20 +68,21 @@ from chuk_artifacts import ArtifactStore
 # JSON Concatenation Fix Utilities
 # ------------------------------------------------------------------------------
 
+
 def parse_tool_arguments(arguments: Union[str, Dict[str, Any]]) -> Dict[str, Any]:
     """
     Parse tool arguments, handling concatenated JSON strings.
-    
+
     Handles cases like: {"text":"hello"}{"delay":0.5} -> {"text":"hello", "delay":0.5}
     """
     # If it's already a dict, return as-is (most common case)
     if isinstance(arguments, dict):
         return arguments
-    
+
     # If it's None or empty, return empty dict
     if not arguments:
         return {}
-    
+
     # Handle string arguments (where concatenation might occur)
     if isinstance(arguments, str):
         # First, try to parse as normal JSON
@@ -94,18 +95,18 @@ def parse_tool_arguments(arguments: Union[str, Dict[str, Any]]) -> Dict[str, Any
             return {"value": parsed}
         except json.JSONDecodeError:
             pass
-        
+
         # If normal parsing failed, try to fix concatenated JSON
-        if '}' in arguments and '{' in arguments:
+        if "}" in arguments and "{" in arguments:
             # Pattern to find }{ concatenations (with optional whitespace)
-            pattern = r'\}\s*\{'
+            pattern = r"\}\s*\{"
             if re.search(pattern, arguments):
                 # Replace }{ with },{ to make it a valid JSON array
-                array_str = '[' + re.sub(pattern, '},{', arguments) + ']'
+                array_str = "[" + re.sub(pattern, "},{", arguments) + "]"
                 try:
                     # Parse as array of objects
                     objects = json.loads(array_str)
-                    
+
                     # Merge all objects into one
                     merged = {}
                     for obj in objects:
@@ -114,15 +115,15 @@ def parse_tool_arguments(arguments: Union[str, Dict[str, Any]]) -> Dict[str, Any
                         else:
                             # If non-dict object in array, add with index
                             merged[f"value_{len(merged)}"] = obj
-                    
+
                     return merged
                 except json.JSONDecodeError:
                     # If parsing the array fails, fall through to string handling
                     pass
-        
+
         # If all JSON parsing fails, treat as plain string
         return {"text": arguments}
-    
+
     # For any other type, convert to string and wrap
     return {"value": str(arguments)}
 
@@ -221,16 +222,18 @@ class MCPServer:
 
         self.server_name = config.get("host", {}).get("name", "generic-mcp")
         self.tools_registry = tools_registry or TOOLS_REGISTRY
-        
+
         # Native session management
         self.session_manager = create_mcp_session_manager(config)
-        
+
         # Artifact store
         self.artifact_store: Optional[ArtifactStore] = None
 
         # Tool timeout configuration
         self.tool_timeout = self._get_tool_timeout()
-        self.logger.debug("Tool timeout configured: %.1fs (global default)", self.tool_timeout)
+        self.logger.debug(
+            "Tool timeout configured: %.1fs (global default)", self.tool_timeout
+        )
 
         update_naming_maps()  # make sure resolve_tool_name works
 
@@ -284,7 +287,9 @@ class MCPServer:
                 status["session"]["status"] == "ok"
                 and status["storage"]["status"] == "ok"
             ):
-                self.logger.debug("Artifact store ready: %s/%s → %s", storage, session, bucket)
+                self.logger.debug(
+                    "Artifact store ready: %s/%s → %s", storage, session, bucket
+                )
             else:
                 self.logger.warning("Artifact-store config issues: %s", status)
         except Exception as exc:
@@ -314,11 +319,7 @@ class MCPServer:
         self, tool_name: str, args: Dict[str, Any]
     ) -> Dict[str, Any]:
         """Auto-inject session context using native session manager."""
-        return await with_session_auto_inject(
-            self.session_manager, 
-            tool_name, 
-            args
-        )
+        return await with_session_auto_inject(self.session_manager, tool_name, args)
 
     async def _execute_tool_with_timeout(
         self, func: Callable, tool_name: str, arguments: Dict[str, Any]
@@ -355,7 +356,9 @@ class MCPServer:
         except asyncio.TimeoutError:
             raise ValueError(f"Tool '{tool_name}' timed out after {timeout:.1f}s")
 
-    async def serve(self, custom_handlers: Optional[Dict[str, Callable]] = None) -> None:
+    async def serve(
+        self, custom_handlers: Optional[Dict[str, Callable]] = None
+    ) -> None:
         """Boot the MCP server and serve forever."""
         await self._setup_artifact_store()
 
@@ -372,31 +375,42 @@ class MCPServer:
         async def list_tools() -> List[Tool]:
             """List available tools with robust error handling."""
             try:
-                self.logger.info("list_tools called - %d tools total", len(self.tools_registry))
-                
+                self.logger.info(
+                    "list_tools called - %d tools total", len(self.tools_registry)
+                )
+
                 tools = []
                 for tool_name, func in self.tools_registry.items():
                     try:
                         if hasattr(func, "_mcp_tool"):
                             tool_obj = func._mcp_tool
-                            
+
                             # Verify the tool object is valid
-                            if hasattr(tool_obj, 'name') and hasattr(tool_obj, 'description'):
+                            if hasattr(tool_obj, "name") and hasattr(
+                                tool_obj, "description"
+                            ):
                                 tools.append(tool_obj)
-                                self.logger.debug("Added tool to list: %s", tool_obj.name)
+                                self.logger.debug(
+                                    "Added tool to list: %s", tool_obj.name
+                                )
                             else:
-                                self.logger.warning("Tool %s has invalid _mcp_tool object: %s", 
-                                                tool_name, tool_obj)
+                                self.logger.warning(
+                                    "Tool %s has invalid _mcp_tool object: %s",
+                                    tool_name,
+                                    tool_obj,
+                                )
                         else:
-                            self.logger.warning("Tool %s missing _mcp_tool attribute", tool_name)
-                            
+                            self.logger.warning(
+                                "Tool %s missing _mcp_tool attribute", tool_name
+                            )
+
                     except Exception as e:
                         self.logger.error("Error processing tool %s: %s", tool_name, e)
                         continue
-                
+
                 self.logger.info("Returning %d valid tools", len(tools))
                 return tools
-                
+
             except Exception as e:
                 self.logger.error("Error in list_tools: %s", e)
                 return []
@@ -413,23 +427,32 @@ class MCPServer:
                 if arguments:
                     if isinstance(arguments, (str, dict)):
                         arguments = parse_tool_arguments(arguments)
-                        
-                        if arguments != original_args:
-                            self.logger.info("Fixed concatenated JSON arguments for '%s': %s -> %s", 
-                                           name, original_args, arguments)
 
-                self.logger.debug("call_tool called with name='%s', arguments=%s", name, arguments)
-                
+                        if arguments != original_args:
+                            self.logger.info(
+                                "Fixed concatenated JSON arguments for '%s': %s -> %s",
+                                name,
+                                original_args,
+                                arguments,
+                            )
+
+                self.logger.debug(
+                    "call_tool called with name='%s', arguments=%s", name, arguments
+                )
+
                 # Tool name resolution
-                resolved = name if name in self.tools_registry else resolve_tool_name(name)
+                resolved = (
+                    name if name in self.tools_registry else resolve_tool_name(name)
+                )
                 if resolved not in self.tools_registry:
                     matches = [
-                        k for k in self.tools_registry
+                        k
+                        for k in self.tools_registry
                         if k.endswith(f"_{name}") or k.endswith(f".{name}")
                     ]
                     if len(matches) == 1:
                         resolved = matches[0]
-                        
+
                 if resolved not in self.tools_registry:
                     raise ValueError(f"Tool not found: {name}")
 
@@ -439,54 +462,94 @@ class MCPServer:
                 # Native session injection
                 arguments = await self._inject_session_context(resolved, arguments)
 
-                # Execute within session context  
+                # Execute within session context
                 async with SessionContext(
-                    self.session_manager, 
+                    self.session_manager,
                     session_id=arguments.get("session_id"),
-                    auto_create=True
+                    auto_create=True,
                 ) as session_id:
-                    
-                    self.logger.debug("Executing tool '%s' in session %s", resolved, session_id)
-                    result = await self._execute_tool_with_timeout(func, resolved, arguments)
-                    self.logger.debug("Tool execution completed, result type: %s", type(result))
+                    self.logger.debug(
+                        "Executing tool '%s' in session %s", resolved, session_id
+                    )
+                    result = await self._execute_tool_with_timeout(
+                        func, resolved, arguments
+                    )
+                    self.logger.debug(
+                        "Tool execution completed, result type: %s", type(result)
+                    )
 
                     # Handle streaming results
                     if isasyncgen(result):
-                        self.logger.debug("Tool returned async generator, collecting chunks for '%s'", resolved)
-                        
+                        self.logger.debug(
+                            "Tool returned async generator, collecting chunks for '%s'",
+                            resolved,
+                        )
+
                         collected_chunks = []
                         chunk_count = 0
-                        
+
                         try:
                             async for part in result:
                                 chunk_count += 1
-                                self.logger.debug("Collecting streaming chunk %d for '%s'", chunk_count, resolved)
-                                
-                                if isinstance(part, (TextContent, ImageContent, EmbeddedResource)):
+                                self.logger.debug(
+                                    "Collecting streaming chunk %d for '%s'",
+                                    chunk_count,
+                                    resolved,
+                                )
+
+                                if isinstance(
+                                    part, (TextContent, ImageContent, EmbeddedResource)
+                                ):
                                     collected_chunks.append(part)
                                 elif isinstance(part, str):
-                                    collected_chunks.append(TextContent(type="text", text=part))
+                                    collected_chunks.append(
+                                        TextContent(type="text", text=part)
+                                    )
                                 elif isinstance(part, dict) and "delta" in part:
-                                    collected_chunks.append(TextContent(type="text", text=part["delta"]))
+                                    collected_chunks.append(
+                                        TextContent(type="text", text=part["delta"])
+                                    )
                                 else:
-                                    collected_chunks.append(TextContent(
-                                        type="text", text=json.dumps(part, ensure_ascii=False)
-                                    ))
-                            
-                            return collected_chunks if collected_chunks else [
-                                TextContent(type="text", text="No output from streaming tool")
-                            ]
-                            
+                                    collected_chunks.append(
+                                        TextContent(
+                                            type="text",
+                                            text=json.dumps(part, ensure_ascii=False),
+                                        )
+                                    )
+
+                            return (
+                                collected_chunks
+                                if collected_chunks
+                                else [
+                                    TextContent(
+                                        type="text",
+                                        text="No output from streaming tool",
+                                    )
+                                ]
+                            )
+
                         except Exception as e:
-                            self.logger.error("Error collecting streaming chunks for '%s': %s", resolved, e)
-                            return [TextContent(type="text", text=f"Streaming error: {str(e)}")]
+                            self.logger.error(
+                                "Error collecting streaming chunks for '%s': %s",
+                                resolved,
+                                e,
+                            )
+                            return [
+                                TextContent(
+                                    type="text", text=f"Streaming error: {str(e)}"
+                                )
+                            ]
 
                     # Handle regular results
-                    self.logger.debug("Tool returned non-streaming result for '%s'", resolved)
-                    
+                    self.logger.debug(
+                        "Tool returned non-streaming result for '%s'", resolved
+                    )
+
                     # Format artifact tool results
                     if _ARTIFACT_RX.search(resolved):
-                        if isinstance(result, dict) and not ("content" in result and "isError" in result):
+                        if isinstance(result, dict) and not (
+                            "content" in result and "isError" in result
+                        ):
                             result = {
                                 "session_id": session_id,
                                 "content": result,
@@ -501,17 +564,22 @@ class MCPServer:
 
                     # Format response
                     if isinstance(result, list) and all(
-                        isinstance(r, (TextContent, ImageContent, EmbeddedResource)) for r in result
+                        isinstance(r, (TextContent, ImageContent, EmbeddedResource))
+                        for r in result
                     ):
                         return result
                     elif isinstance(result, str):
                         return [TextContent(type="text", text=result)]
                     else:
-                        return [TextContent(type="text", text=json.dumps(result, indent=2))]
-                
+                        return [
+                            TextContent(type="text", text=json.dumps(result, indent=2))
+                        ]
+
             except Exception as e:
                 self.logger.error("Error in call_tool for '%s': %s", name, e)
-                return [TextContent(type="text", text=f"Tool execution error: {str(e)}")]
+                return [
+                    TextContent(type="text", text=f"Tool execution error: {str(e)}")
+                ]
 
         # ------------------------------------------------------------------ #
         # Transport bootstrapping (stdio / SSE / StreamableHTTP)            #
@@ -520,14 +588,20 @@ class MCPServer:
         mode = self.config.get("server", {}).get("type", "stdio")
 
         if mode == "stdio":
-            self.logger.info("Starting MCP (stdio) - global timeout %.1fs", self.tool_timeout)
+            self.logger.info(
+                "Starting MCP (stdio) - global timeout %.1fs", self.tool_timeout
+            )
             async with stdio_server() as (r, w):
                 await server.run(r, w, opts)
 
         elif mode == "sse":
             cfg = self.config.get("sse", {})
-            host, port = cfg.get("host", "0.0.0.0"), cfg.get("port", 8000) # nosec B104 - Intentional binding for server as default
-            sse_path, msg_path, health_path = cfg.get("sse_path", "/sse"), cfg.get("message_path", "/messages/"), cfg.get("health_path", "/health")
+            host, port = cfg.get("host", "0.0.0.0"), cfg.get("port", 8000)  # nosec B104 - Intentional binding for server as default
+            sse_path, msg_path, health_path = (
+                cfg.get("sse_path", "/sse"),
+                cfg.get("message_path", "/messages/"),
+                cfg.get("health_path", "/health"),
+            )
             transport = SseServerTransport(msg_path)
 
             async def _handle_sse(request: Request):
@@ -536,7 +610,7 @@ class MCPServer:
                 ) as streams:
                     await server.run(streams[0], streams[1], opts)
                 return Response()
-            
+
             async def health(request):
                 return PlainTextResponse("OK")
 
@@ -554,7 +628,12 @@ class MCPServer:
                     )
                 ],
             )
-            self.logger.info("Starting MCP (SSE) on %s:%s - global timeout %.1fs", host, port, self.tool_timeout)
+            self.logger.info(
+                "Starting MCP (SSE) on %s:%s - global timeout %.1fs",
+                host,
+                port,
+                self.tool_timeout,
+            )
             await uvicorn.Server(
                 uvicorn.Config(app, host=host, port=port, log_level="info")
             ).serve()
@@ -571,7 +650,7 @@ class MCPServer:
             stateless = streamhttp_config.get("stateless", True)
 
             event_store = None if stateless else InMemoryEventStore()
-            
+
             # Create the session manager with our app and event store
             session_manager = StreamableHTTPSessionManager(
                 app=server,
@@ -579,8 +658,10 @@ class MCPServer:
                 stateless=stateless,
                 json_response=json_response,
             )
-            
-            async def handle_streamable_http(scope: Scope, receive: Receive, send: Send) -> Response:
+
+            async def handle_streamable_http(
+                scope: Scope, receive: Receive, send: Send
+            ) -> Response:
                 await session_manager.handle_request(scope, receive, send)
                 return Response()
 
@@ -590,7 +671,9 @@ class MCPServer:
             @contextlib.asynccontextmanager
             async def lifespan(app: Starlette) -> AsyncIterator[None]:
                 async with session_manager.run():
-                    self.logger.info("Application started with StreamableHTTP session manager!")
+                    self.logger.info(
+                        "Application started with StreamableHTTP session manager!"
+                    )
                     try:
                         yield
                     finally:
@@ -611,7 +694,12 @@ class MCPServer:
                 lifespan=lifespan,
             )
 
-            self.logger.info("Starting MCP (StreamableHTTP) on %s:%s - global timeout %.1fs", host, port, self.tool_timeout)
+            self.logger.info(
+                "Starting MCP (StreamableHTTP) on %s:%s - global timeout %.1fs",
+                host,
+                port,
+                self.tool_timeout,
+            )
             await uvicorn.Server(
                 uvicorn.Config(app, host=host, port=port, log_level="info")
             ).serve()
@@ -640,14 +728,11 @@ class MCPServer:
         return self.session_manager
 
     async def create_user_session(
-        self, 
-        user_id: str, 
-        metadata: Optional[Dict[str, Any]] = None
+        self, user_id: str, metadata: Optional[Dict[str, Any]] = None
     ) -> str:
         """Create a new user session."""
         return await self.session_manager.create_session(
-            user_id=user_id,
-            metadata=metadata
+            user_id=user_id, metadata=metadata
         )
 
     def get_artifact_store(self) -> Optional[ArtifactStore]:

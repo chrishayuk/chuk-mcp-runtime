@@ -2,6 +2,7 @@
 """
 Fixed server tests that match the actual server behavior.
 """
+
 import pytest
 import asyncio
 from unittest.mock import Mock, AsyncMock, patch
@@ -13,6 +14,7 @@ from chuk_mcp_runtime.common.mcp_tool_decorator import mcp_tool, TOOLS_REGISTRY
 # Track created fake servers
 _created_servers = []
 
+
 class FakeServer:
     def __init__(self, name):
         _created_servers.append(self)
@@ -21,14 +23,16 @@ class FakeServer:
 
     def list_tools(self):
         def decorator(fn):
-            self.handlers['list_tools'] = fn
+            self.handlers["list_tools"] = fn
             return fn
+
         return decorator
 
     def call_tool(self):
         def decorator(fn):
-            self.handlers['call_tool'] = fn
+            self.handlers["call_tool"] = fn
             return fn
+
         return decorator
 
     def create_initialization_options(self):
@@ -37,13 +41,16 @@ class FakeServer:
     async def run(self, read, write, opts):
         return
 
+
 @asynccontextmanager
 async def dummy_stdio():
     yield (None, None)
 
+
 @pytest.fixture(autouse=True)
 def setup_test(monkeypatch):
     import chuk_mcp_runtime.server.server as srv_mod
+
     monkeypatch.setattr(srv_mod, "Server", FakeServer)
     monkeypatch.setattr(srv_mod, "stdio_server", dummy_stdio)
     TOOLS_REGISTRY.clear()
@@ -51,6 +58,7 @@ def setup_test(monkeypatch):
     yield
     TOOLS_REGISTRY.clear()
     _created_servers.clear()
+
 
 def run_async(coro):
     try:
@@ -63,39 +71,42 @@ def run_async(coro):
         asyncio.set_event_loop(loop)
     return loop.run_until_complete(coro)
 
+
 @mcp_tool(name="error_tool", description="Raises an error")
 async def error_tool():
     raise ValueError("Test error message")
+
 
 def test_call_tool_errors():
     """Test that call_tool handles errors properly - returns error messages, doesn't raise."""
     cfg = {"server": {"type": "stdio"}, "tools": {}}
     server = MCPServer(cfg)
-    
+
     TOOLS_REGISTRY["error_tool"] = error_tool
-    
+
     # Start server to register handlers
     run_async(server.serve())
-    
+
     # Get the fake server that was created
     assert len(_created_servers) > 0, "No fake server was created"
     fake_server = _created_servers[-1]
-    
-    assert 'call_tool' in fake_server.handlers, "call_tool handler not registered"
-    call_tool = fake_server.handlers['call_tool']
-    
+
+    assert "call_tool" in fake_server.handlers, "call_tool handler not registered"
+    call_tool = fake_server.handlers["call_tool"]
+
     # Test that calling a tool that raises an error returns an error message
     # The actual server catches exceptions and returns error messages
     result = run_async(call_tool("error_tool", {}))
     assert len(result) == 1
     assert "Tool execution error" in result[0].text
     assert "Test error message" in result[0].text
-    
+
     # Test nonexistent tool also returns error message
     result2 = run_async(call_tool("does_not_exist", {}))
     assert len(result2) == 1
     assert "Tool execution error" in result2[0].text
     assert "Tool not found" in result2[0].text
+
 
 if __name__ == "__main__":
     pytest.main(["-xvs", __file__])
