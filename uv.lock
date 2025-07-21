@@ -368,7 +368,6 @@ dev = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "mcp" },
     { name = "pytest-asyncio" },
     { name = "toml" },
     { name = "tomli-w" },
@@ -379,7 +378,7 @@ requires-dist = [
     { name = "chuk-artifacts", specifier = ">=0.4.1" },
     { name = "chuk-sessions", specifier = ">=0.4.2" },
     { name = "cryptography", specifier = ">=44.0.3" },
-    { name = "mcp", specifier = ">=1.9.4" },
+    { name = "mcp", specifier = ">=1.12.0" },
     { name = "pydantic", specifier = ">=2.10.6" },
     { name = "pyjwt", specifier = ">=2.10.1" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.5" },
@@ -391,7 +390,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "mcp", specifier = ">=1.6.0" },
     { name = "pytest-asyncio", specifier = ">=0.26.0" },
     { name = "toml", specifier = ">=0.10.2" },
     { name = "tomli-w", specifier = ">=1.2.0" },
