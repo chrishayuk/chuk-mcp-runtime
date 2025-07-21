@@ -37,11 +37,11 @@ from starlette.applications import Starlette
 from starlette.datastructures import MutableHeaders
 from starlette.exceptions import HTTPException
 from starlette.middleware import Middleware
-from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response, PlainTextResponse
 from starlette.routing import Mount, Route
 from starlette.types import ASGIApp, Receive, Scope, Send
+from http.cookies import SimpleCookie
 
 from chuk_mcp_runtime.common.mcp_tool_decorator import (
     TOOLS_REGISTRY,
@@ -130,43 +130,69 @@ def parse_tool_arguments(arguments: Union[str, Dict[str, Any]]) -> Dict[str, Any
 # ------------------------------------------------------------------------------
 # Authentication middleware
 # ------------------------------------------------------------------------------
-class AuthMiddleware(BaseHTTPMiddleware):
-    """Simple bearer-token / cookie-based auth."""
+class AuthMiddleware:
+    """Simple bearer-token / cookie-based auth implemented as plain ASGI middleware."""
 
-    def __init__(self, app: ASGIApp, auth: Optional[str] = None, health_path: Optional[str] = "/health") -> None:
-        super().__init__(app)
+    def __init__(
+        self,
+        app: ASGIApp,
+        auth: Optional[str] = None,
+        health_path: str = "/health",
+    ) -> None:
+        self.app = app
         self.auth = auth
         self.health_path = health_path
 
-    async def dispatch(
-        self, request: Request, call_next: Callable[[Request], Response]
-    ) -> Response:
-        if request.url.path == self.health_path and request.method == "GET":
-            return await call_next(request)
-    
-        if self.auth != "bearer":
-            return await call_next(request)
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        # Let non-HTTP traffic pass straight through (e.g. websockets).
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
 
-        token = None
-        # 1) Authorization header
-        if "Authorization" in request.headers:
-            m = re.match(r"Bearer\s+(.+)", request.headers["Authorization"], re.I)
+        path: str = scope["path"]
+        method: str = scope["method"]
+
+        # Health check or “auth disabled” → no checks.
+        if (path == self.health_path and method == "GET") or self.auth != "bearer":
+            await self.app(scope, receive, send)
+            return
+
+        # --------------------  Extract token  --------------------
+        headers = {k.decode().lower(): v.decode() for k, v in scope["headers"]}
+        token: Optional[str] = None
+
+        # 1)  Authorization: Bearer <token>
+        auth_header = headers.get("authorization")
+        if auth_header:
+            m = re.match(r"Bearer\s+(.+)", auth_header, re.I)
             if m:
                 token = m.group(1)
-        # 2) cookie fallback
-        if not token:
-            token = request.cookies.get("jwt_token")
+
+        # 2)  Cookie: jwt_token=<token>
+        if not token and "cookie" in headers:
+            cookie = SimpleCookie()
+            cookie.load(headers["cookie"])
+            if "jwt_token" in cookie:
+                token = cookie["jwt_token"].value
+        # ---------------------------------------------------------
 
         if not token:
-            return JSONResponse({"error": "Not authenticated"}, status_code=401)
+            await JSONResponse({"error": "Not authenticated"}, status_code=401)(
+                scope, receive, send
+            )
+            return
 
         try:
             payload = await validate_token(token)
-            request.scope["user"] = payload
+            scope["user"] = payload  # Stash for downstream handlers.
         except HTTPException as exc:
-            return JSONResponse({"error": exc.detail}, status_code=exc.status_code)
+            await JSONResponse({"error": exc.detail}, status_code=exc.status_code)(
+                scope, receive, send
+            )
+            return
 
-        return await call_next(request)
+        # Auth successful → continue.
+        await self.app(scope, receive, send)
 
 
 # ------------------------------------------------------------------------------
