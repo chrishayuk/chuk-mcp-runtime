@@ -1,0 +1,33 @@
+# MCP Resources Demo Configuration
+# Enables artifacts with both tools (write) and resources (read)
+
+host:
+  name: "resources-demo-server"
+  log_level: "INFO"
+
+server:
+  type: "stdio"
+
+# Enable sessions for isolation
+sessions:
+  sandbox_id: "resources-demo"
+  default_ttl_hours: 24
+
+# Enable artifacts with filesystem storage
+artifacts:
+  enabled: true
+  storage_provider: "filesystem"
+  session_provider: "memory"
+  bucket: "resources-demo-files"
+
+  # Enable artifact tools (write operations)
+  tools:
+    write_file: {enabled: true}
+    upload_file: {enabled: true}
+    read_file: {enabled: true}
+    list_session_files: {enabled: true}
+    delete_file: {enabled: true}
+    get_file_metadata: {enabled: true}
+
+# Resources are automatically enabled when artifacts are enabled
+# resources/list and resources/read are handled by the server

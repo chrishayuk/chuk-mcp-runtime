@@ -28,6 +28,7 @@ A robust, production-ready runtime for the official Model Context Protocol (MCP)
 │  - Proxy Manager         │
 │  - Session Manager       │
 │  - Artifact Storage      │
+│  - Resource Provider     │
 │  - JWT Auth & Progress   │
 └───────────┬──────────────┘
             │
@@ -138,6 +139,7 @@ uv pip install tzdata
 - [Configuration Reference](#configuration-reference)
 - [Proxy Configuration Examples](#proxy-configuration-examples)
 - [Creating Local Tools](#creating-local-mcp-tools)
+- [MCP Resources](#mcp-resources)
 - [Progress Notifications](#progress-notifications)
 - [Built-in Tools](#built-in-tool-categories)
 - [Security Model](#security-model)
@@ -709,6 +711,451 @@ mcp_servers:
 
 ```bash
 chuk-mcp-server --config config.yaml
+```
+
+## MCP Resources
+
+**MCP Resources** provide read-only access to data through the Model Context Protocol's `resources/list` and `resources/read` endpoints. Resources are perfect for exposing configuration, documentation, system information, and user files to AI agents.
+
+### Resources vs Tools
+
+| Feature | **Resources** | **Tools** |
+|---------|--------------|-----------|
+| **Purpose** | Read-only data access | Actions & state changes |
+| **Use Cases** | Config, docs, files, metrics | Create, update, delete operations |
+| **MCP Methods** | `resources/list`, `resources/read` | `tools/list`, `tools/call` |
+| **Side Effects** | None (read-only) | May modify state |
+| **Session Isolation** | Artifact resources only | Tool-dependent |
+
+### Resource Types
+
+CHUK MCP Runtime supports two types of resources:
+
+#### 1. Custom Resources (@mcp_resource)
+
+Custom resources expose application data, configuration, documentation, or any read-only content through simple Python functions.
+
+**Creating custom resources:**
+
+```python
+# my_resources/resources.py
+from chuk_mcp_runtime.common.mcp_resource_decorator import mcp_resource
+import json
+import os
+
+@mcp_resource(
+    uri="config://database",
+    name="Database Configuration",
+    description="Database connection settings",
+    mime_type="application/json"
+)
+async def get_database_config():
+    """Return database configuration as JSON."""
+    config = {
+        "host": "localhost",
+        "port": 5432,
+        "database": "myapp_db",
+        "pool_size": 10
+    }
+    return json.dumps(config, indent=2)
+
+@mcp_resource(
+    uri="system://info",
+    name="System Information",
+    description="Current system status",
+    mime_type="text/plain"
+)
+async def get_system_info():
+    """Return system information."""
+    return f"""System Information
+Platform: {os.uname().sysname}
+Node: {os.uname().nodename}
+User: {os.getenv('USER', 'unknown')}
+"""
+
+@mcp_resource(
+    uri="docs://api/overview",
+    name="API Documentation",
+    description="API endpoints guide",
+    mime_type="text/markdown"
+)
+def get_api_docs():
+    """Return API documentation (sync functions work too!)."""
+    return """# API Documentation
+
+## Authentication
+All requests require Bearer token.
+
+## Endpoints
+- GET /api/users - List users
+- POST /api/users - Create user
+"""
+```
+
+**Configuration:**
+
+```yaml
+# config.yaml
+server:
+  type: "stdio"
+
+# Import module containing custom resources
+tools:
+  modules_to_import:
+    - my_resources.resources
+```
+
+**Custom resource features:**
+- **Static or dynamic** - Return fixed data or compute on-demand
+- **Sync or async** - Both function types supported
+- **Any content type** - Text, JSON, binary, images, etc.
+- **Custom URI schemes** - Use meaningful URIs like `config://`, `docs://`, `system://`
+
+#### 2. Artifact Resources (Session-Isolated User Files)
+
+Artifact resources provide **automatic, session-isolated access to user files** through the MCP resources protocol. When users create, upload, or modify files via artifact tools, those files are automatically exposed as resources with strong session isolation guarantees.
+
+**Key Concepts:**
+
+- **Automatic Exposure**: Files created via `write_file`, `upload_file`, etc. are automatically available via `resources/list` and `resources/read`
+- **Session Isolation**: Users can only list and read their own files - cross-session access is blocked
+- **Unified Protocol**: Access files through the same MCP resources protocol as custom resources
+- **URI Format**: `artifact://{artifact_id}` where `artifact_id` is the unique file identifier
+
+**How Artifact Resources Work:**
+
+```python
+# Step 1: User creates a file via an artifact tool
+# This happens via MCP tool call: tools/call with name="write_file"
+
+# Example tool call from AI agent:
+{
+  "method": "tools/call",
+  "params": {
+    "name": "write_file",
+    "arguments": {
+      "filename": "analysis.md",
+      "content": "# Data Analysis\n\nKey findings...",
+      "mime": "text/markdown",
+      "summary": "Q3 analysis report"
+    }
+  }
+}
+
+# Step 2: File is stored with session association
+# - artifact_id: "abc-123-def-456"
+# - session_id: "session-alice"
+# - filename: "analysis.md"
+# - mime: "text/markdown"
+
+# Step 3: File automatically appears in resources/list
+{
+  "method": "resources/list"
+}
+# Returns:
+{
+  "resources": [
+    {
+      "uri": "artifact://abc-123-def-456",
+      "name": "analysis.md",
+      "description": "Q3 analysis report",
+      "mimeType": "text/markdown"
+    }
+  ]
+}
+
+# Step 4: Read the resource content
+{
+  "method": "resources/read",
+  "params": {"uri": "artifact://abc-123-def-456"}
+}
+# Returns:
+{
+  "contents": [
+    {
+      "uri": "artifact://abc-123-def-456",
+      "mimeType": "text/markdown",
+      "text": "# Data Analysis\n\nKey findings..."
+    }
+  ]
+}
+```
+
+**Session Isolation Example:**
+
+```python
+# Alice's session (session-alice)
+# Creates: report.md -> artifact://file-alice-1
+
+# Bob's session (session-bob)
+# Creates: report.md -> artifact://file-bob-1
+
+# When Alice calls resources/list:
+# Returns ONLY: artifact://file-alice-1
+
+# When Bob calls resources/list:
+# Returns ONLY: artifact://file-bob-1
+
+# If Alice tries to read Bob's file:
+# resources/read {"uri": "artifact://file-bob-1"}
+# Result: Error - Artifact not found (access blocked)
+```
+
+**Configuration:**
+
+```yaml
+# config.yaml
+artifacts:
+  enabled: true
+  storage_provider: "filesystem"  # or "s3", "ibm_cos"
+  session_provider: "memory"      # or "redis"
+
+  # Storage configuration (for filesystem provider)
+  filesystem:
+    base_path: "./artifacts"
+
+  # Enable artifact tools (users create files via these tools)
+  tools:
+    write_file: {enabled: true}         # Create/update text files
+    upload_file: {enabled: true}        # Upload binary files
+    read_file: {enabled: true}          # Read file content
+    list_session_files: {enabled: true} # List user's files
+    delete_file: {enabled: true}        # Delete files
+```
+
+**Supported File Operations:**
+
+| Tool | Purpose | Creates Resource? |
+|------|---------|-------------------|
+| `write_file` | Create or update text file | ✅ Yes |
+| `upload_file` | Upload binary file (images, PDFs, etc.) | ✅ Yes |
+| `read_file` | Read file content by filename | No (uses resource instead) |
+| `list_session_files` | List user's files | No (use `resources/list`) |
+| `delete_file` | Delete a file | Removes resource |
+
+**Text vs Binary Content:**
+
+```python
+# Text files (JSON, Markdown, code, etc.)
+# Returned as "text" in resource content
+{
+  "uri": "artifact://text-123",
+  "mimeType": "application/json",
+  "text": '{"key": "value"}'
+}
+
+# Binary files (images, PDFs, etc.)
+# Returned as base64-encoded "blob"
+{
+  "uri": "artifact://binary-456",
+  "mimeType": "image/png",
+  "blob": "iVBORw0KGgoAAAANSUhEUgAA..."  # base64 encoded
+}
+```
+
+**Artifact Resource Metadata:**
+
+Each artifact resource includes:
+- **URI**: `artifact://{artifact_id}` - Unique resource identifier
+- **Name**: Original filename (e.g., "report.pdf")
+- **Description**: Summary/description provided during creation
+- **MIME Type**: Content type (e.g., "application/pdf", "text/markdown")
+- **Session ID**: Internal - used for access control (not exposed)
+
+**Integration with Custom Resources:**
+
+Artifact resources and custom resources work together seamlessly:
+
+```python
+# Both appear in the same resources/list response:
+{
+  "resources": [
+    # Custom resources (global)
+    {"uri": "config://database", "name": "Database Config", ...},
+    {"uri": "docs://api", "name": "API Documentation", ...},
+
+    # Artifact resources (session-isolated)
+    {"uri": "artifact://abc-123", "name": "user-report.md", ...},
+    {"uri": "artifact://def-456", "name": "analysis.pdf", ...}
+  ]
+}
+
+# AI agents can access both types through the same protocol
+```
+
+**Security & Access Control:**
+
+Artifact resources have **multi-layer security**:
+
+1. **Session Validation**: Every `resources/read` call validates session ownership
+2. **Metadata Verification**: Artifact metadata must match current session
+3. **Access Blocking**: Cross-session reads return "not found" error
+4. **Audit Trail**: All access attempts can be logged for compliance
+
+**Common Use Cases:**
+
+- **Document Generation**: AI creates reports, summaries, code files
+- **Data Analysis**: AI processes data and saves results as artifacts
+- **File Management**: Users upload files, AI analyzes and references them
+- **Multi-step Workflows**: AI saves intermediate results as artifacts
+- **Context Persistence**: Files remain accessible across conversation turns
+
+**Artifact Resource Features:**
+- ✅ **Session isolation** - Users only see their own files
+- ✅ **Automatic exposure** - Files created via tools become resources immediately
+- ✅ **URI scheme** - Consistent `artifact://{id}` format
+- ✅ **Security** - Built-in access control and validation
+- ✅ **Persistence** - Files survive server restarts (with filesystem/cloud storage)
+- ✅ **Binary support** - Images, PDFs, archives via base64 encoding
+- ✅ **Metadata** - Filenames, MIME types, descriptions included
+
+### Resource URI Schemes
+
+| URI Scheme | Type | Example | Use Case |
+|------------|------|---------|----------|
+| `config://` | Custom | `config://database` | Configuration data |
+| `system://` | Custom | `system://info` | System information |
+| `docs://` | Custom | `docs://api/overview` | Documentation |
+| `data://` | Custom | `data://logo.png` | Static assets |
+| `artifact://` | Artifact | `artifact://abc-123-def` | User files |
+
+### Using Resources in AI Agents
+
+Resources are designed for AI agents to retrieve contextual data:
+
+```python
+# AI agent workflow:
+# 1. List available resources
+response = await client.call("resources/list")
+# Returns: config://database, system://info, artifact://report-123
+
+# 2. Read specific resource
+content = await client.call("resources/read", {"uri": "config://database"})
+# Returns: {"host": "localhost", "port": 5432, ...}
+
+# 3. Use data in decision making
+# Agent now has config context for subsequent operations
+```
+
+### Complete Example
+
+```python
+# resources_example.py
+from chuk_mcp_runtime.common.mcp_resource_decorator import mcp_resource
+from chuk_mcp_runtime.common.mcp_tool_decorator import mcp_tool
+import json
+from datetime import datetime
+
+# Custom resource: Configuration
+@mcp_resource(
+    uri="config://app/settings",
+    name="Application Settings",
+    description="Current app configuration",
+    mime_type="application/json"
+)
+async def get_app_settings():
+    return json.dumps({
+        "version": "1.0.0",
+        "features": {"dark_mode": True},
+        "limits": {"max_upload_mb": 100}
+    })
+
+# Custom resource: Dynamic status
+@mcp_resource(
+    uri="status://health",
+    name="Health Status",
+    description="Real-time health check",
+    mime_type="application/json"
+)
+async def get_health_status():
+    # Computed on each request
+    return json.dumps({
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "uptime": get_uptime_seconds()
+    })
+
+# Tool: Create artifact resource
+@mcp_tool(name="save_document")
+async def save_document(filename: str, content: str):
+    """Save a document (becomes artifact resource automatically)."""
+    from chuk_mcp_runtime.tools.artifacts_tools import artifact_store
+    artifact_id = await artifact_store.write_file(filename, content)
+    return f"Saved as artifact://{artifact_id}"
+```
+
+**Config:**
+
+```yaml
+server:
+  type: "stdio"
+
+# Enable artifacts (provides artifact:// resources)
+artifacts:
+  enabled: true
+  tools:
+    write_file: {enabled: true}
+
+# Import custom resources
+tools:
+  modules_to_import:
+    - resources_example
+
+mcp_servers:
+  local:
+    enabled: true
+    location: "."
+    tools:
+      enabled: true
+      module: "resources_example"
+```
+
+### Security & Access Control
+
+**Custom resources:**
+- No built-in access control (global to all users)
+- Implement filtering in resource function if needed
+- Don't expose sensitive data directly
+
+**Artifact resources:**
+- ✅ **Session-isolated** - Automatic access control
+- ✅ **User-scoped** - Each user sees only their files
+- ✅ **Validated** - URI and session verified on read
+
+**Best practices:**
+```python
+# ❌ BAD: Expose sensitive config
+@mcp_resource(uri="config://secrets")
+def get_secrets():
+    return {"api_key": "secret123"}  # Exposed to all users!
+
+# ✅ GOOD: Expose non-sensitive config
+@mcp_resource(uri="config://public")
+def get_public_config():
+    return {"app_name": "MyApp", "version": "1.0"}
+
+# ✅ GOOD: Filter by session if needed
+@mcp_resource(uri="config://user")
+async def get_user_config():
+    from chuk_mcp_runtime.session import get_current_session
+    session = get_current_session()
+    # Return user-specific config based on session
+    return get_config_for_session(session)
+```
+
+### Examples
+
+See complete working examples:
+- `examples/custom_resources_demo.py` - Custom resources showcase
+- `examples/resources_e2e_demo.py` - Full E2E demo with MCP protocol
+
+Run examples:
+```bash
+# Standalone custom resources demo
+uv run python examples/custom_resources_demo.py
+
+# Full E2E demo (server + client)
+uv run python examples/resources_e2e_demo.py
 ```
 
 ## Built-in Tool Categories

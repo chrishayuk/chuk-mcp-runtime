@@ -5,6 +5,7 @@ CHUK MCP Server
 * automatic session-ID injection for artifact tools via native session management
 * optional bearer-token auth middleware
 * transparent chuk_artifacts integration
+* MCP resources integration with session-isolated artifact access
 * global **and per-tool** timeout support
 * end-to-end **token streaming** for async-generator tools
 * JSON concatenation fixing for tool parameters
@@ -15,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import importlib
+import inspect
 import json
 import os
 import re
@@ -30,12 +32,18 @@ from typing import Any, AsyncIterator, Callable, Dict, List, Optional, Union
 import uvicorn
 
 # ─────────────────────────── chuk_artifacts integration ──────────────────────
-from chuk_artifacts import ArtifactStore
+from chuk_artifacts import ArtifactNotFoundError, ArtifactStore
 from mcp.server import Server
 from mcp.server.sse import SseServerTransport
 from mcp.server.stdio import stdio_server
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
-from mcp.types import EmbeddedResource, ImageContent, TextContent, Tool
+from mcp.types import (
+    EmbeddedResource,
+    ImageContent,
+    Resource,
+    TextContent,
+    Tool,
+)
 from starlette.applications import Starlette
 from starlette.exceptions import HTTPException
 from starlette.middleware import Middleware
@@ -44,6 +52,11 @@ from starlette.responses import JSONResponse, PlainTextResponse, Response
 from starlette.routing import Mount, Route
 from starlette.types import ASGIApp, Receive, Scope, Send
 
+from chuk_mcp_runtime.common.mcp_resource_decorator import (
+    get_registered_resources,
+    get_resource_function,
+    initialize_resource_registry,
+)
 from chuk_mcp_runtime.common.mcp_tool_decorator import (
     TOOLS_REGISTRY,
     initialize_tool_registry,
@@ -348,6 +361,7 @@ class MCPServer:
             self.tools_registry = await self._import_tools_registry()
 
         await initialize_tool_registry()
+        await initialize_resource_registry()
         update_naming_maps()
 
         server = Server(self.server_name)
@@ -557,6 +571,159 @@ class MCPServer:
             except Exception as e:
                 self.logger.error("Error in call_tool for '%s': %s", name, e)
                 return [TextContent(type="text", text=f"Tool execution error: {str(e)}")]
+
+        # ----------------------------- list_resources ----------------------------- #
+        @server.list_resources()
+        async def list_resources() -> List[Resource]:
+            """
+            List all available resources:
+            1. Custom resources (from @mcp_resource decorators)
+            2. Artifact resources (session-isolated files)
+            """
+            all_resources = []
+
+            # Part 1: Add custom resources (from decorators)
+            try:
+                custom_resources = get_registered_resources()
+                all_resources.extend(custom_resources)
+                self.logger.debug("Added %d custom resources", len(custom_resources))
+            except Exception as e:
+                self.logger.error("Failed to list custom resources: %s", e)
+
+            # Part 2: Add artifact resources (session-isolated)
+            artifacts_config = self.config.get("artifacts", {})
+            if artifacts_config.get("enabled", False):
+                current_session = self.session_manager.get_current_session()
+
+                if current_session and self.artifact_store:
+                    try:
+                        # CRITICAL: Only list files in the CURRENT session
+                        files = await self.artifact_store.list_by_session(current_session)
+
+                        for f in files:
+                            artifact_id = f.get("artifact_id", "")
+                            if not artifact_id:
+                                continue
+
+                            uri = f"artifact://{artifact_id}"
+
+                            all_resources.append(
+                                Resource(
+                                    uri=uri,
+                                    name=f.get("filename", "unknown"),
+                                    description=f.get("summary", ""),
+                                    mimeType=f.get("mime", "application/octet-stream"),
+                                )
+                            )
+
+                        self.logger.debug(
+                            "Added %d artifact resources for session %s",
+                            len(files),
+                            current_session,
+                        )
+                    except Exception as e:
+                        self.logger.error("Failed to list artifact resources: %s", e)
+                else:
+                    if not current_session:
+                        self.logger.debug("No session context - skipping artifact resources")
+                    if not self.artifact_store:
+                        self.logger.debug("Artifact store not initialized")
+
+            self.logger.info("Listing %d total resources", len(all_resources))
+            return all_resources
+
+        # ----------------------------- read_resource ----------------------------- #
+        @server.read_resource()
+        async def read_resource(uri: str):
+            """
+            Read resource content from custom resources or artifacts.
+
+            Handles:
+            1. Custom resources (from @mcp_resource decorators)
+            2. Artifact resources (session-isolated files)
+            """
+
+            # Try custom resources first
+            # Convert AnyUrl to string if needed
+            uri_str = str(uri)
+            resource_func = get_resource_function(uri_str)
+            if resource_func:
+                try:
+                    self.logger.debug("Reading custom resource: %s", uri)
+
+                    # Call the resource function
+                    result = resource_func()
+                    if inspect.iscoroutine(result):
+                        result = await result
+
+                    # Get MIME type from metadata
+                    mime_type = getattr(resource_func, "_mcp_resource", None)
+                    mime = mime_type.mimeType if mime_type else "text/plain"
+
+                    # SDK accepts: str | bytes | Iterable[ReadResourceContents]
+                    # Return raw string/bytes for simple cases
+                    if isinstance(result, bytes):
+                        return result
+                    else:
+                        return str(result)
+
+                except Exception as e:
+                    self.logger.error("Failed to read custom resource %s: %s", uri, e)
+                    raise ValueError(f"Failed to read custom resource: {str(e)}")
+
+            # Try artifact resources
+            if uri_str.startswith("artifact://"):
+                artifacts_config = self.config.get("artifacts", {})
+                if not artifacts_config.get("enabled", False):
+                    raise ValueError("Artifacts not enabled")
+
+                current_session = self.session_manager.get_current_session()
+                if not current_session:
+                    raise ValueError("No session context - cannot read artifact resource")
+
+                if not self.artifact_store:
+                    raise ValueError("Artifact store not initialized")
+
+                try:
+                    artifact_id = uri.replace("artifact://", "").strip("/")
+                    if not artifact_id:
+                        raise ValueError("Invalid URI: missing artifact ID")
+
+                    # Get metadata first to verify session ownership
+                    metadata = await self.artifact_store.metadata(artifact_id)
+                    resource_session = metadata.get("session_id")
+
+                    # CRITICAL SECURITY CHECK: Verify session ownership
+                    if resource_session != current_session:
+                        self.logger.warning(
+                            "Session isolation violation: artifact %s belongs to %s, "
+                            "requested by %s",
+                            artifact_id,
+                            resource_session,
+                            current_session,
+                        )
+                        raise ValueError("Access denied: resource belongs to different session")
+
+                    # Session validated - safe to read
+                    data = await self.artifact_store.retrieve(artifact_id)
+                    mime = metadata.get("mime", "application/octet-stream")
+
+                    # SDK accepts: str | bytes | Iterable[ReadResourceContents]
+                    # Return raw string/bytes for simple cases
+                    if mime.startswith("text/"):
+                        return data.decode("utf-8")
+                    else:
+                        return data
+
+                except ArtifactNotFoundError:
+                    self.logger.warning("Artifact resource not found: %s", uri)
+                    raise ValueError(f"Resource not found: {uri}")
+                except Exception as e:
+                    self.logger.error("Failed to read artifact resource %s: %s", uri, e)
+                    raise ValueError(f"Failed to read resource: {str(e)}")
+
+            # Resource not found
+            raise ValueError(f"Resource not found: {uri}")
 
         # ------------------------------------------------------------------ #
         # Transport bootstrapping (stdio / SSE / StreamableHTTP)            #

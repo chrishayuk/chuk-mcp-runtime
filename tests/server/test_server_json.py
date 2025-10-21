@@ -36,6 +36,20 @@ class FakeServer:
 
         return decorator
 
+    def list_resources(self):
+        def decorator(fn):
+            self.handlers["list_resources"] = fn
+            return fn
+
+        return decorator
+
+    def read_resource(self):
+        def decorator(fn):
+            self.handlers["read_resource"] = fn
+            return fn
+
+        return decorator
+
     def create_initialization_options(self):
         return {}
 
