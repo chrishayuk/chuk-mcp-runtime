@@ -13,9 +13,17 @@ Run:
 """
 
 from __future__ import annotations
-import argparse, asyncio, json, logging, os, tempfile, sys, inspect
+
+import argparse
+import asyncio
+import inspect
+import json
+import logging
+import os
+import sys
+import tempfile
 from pathlib import Path
-from typing import Dict, Any, Callable, Union
+from typing import Any, Dict
 
 # ── logging ───────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -29,14 +37,14 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 # ── internal imports ──────────────────────────────────────────────────
-from chuk_mcp_runtime.proxy.manager import ProxyServerManager
-from chuk_mcp_runtime.server.config_loader import load_config
-from chuk_tool_processor.registry import ToolRegistryProvider
+from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY
 from chuk_mcp_runtime.common.openai_compatibility import (
     OpenAIToolsAdapter,
     initialize_openai_compatibility,
 )
-from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY
+from chuk_mcp_runtime.proxy.manager import ProxyServerManager
+from chuk_mcp_runtime.server.config_loader import load_config
+from chuk_tool_processor.registry import ToolRegistryProvider
 
 
 # ───────────────────────── helpers ────────────────────────────────────
@@ -202,9 +210,7 @@ async def demo(only_openai_tools: bool, debug: bool) -> None:
             meta = fn._mcp_tool  # type: ignore[attr-defined]
             print(f"  • {name}")
             print(f"    Description: {meta.description}")
-            print(
-                f"    Schema: {len(meta.inputSchema.get('properties', {}))} properties"
-            )
+            print(f"    Schema: {len(meta.inputSchema.get('properties', {}))} properties")
 
         # Show OpenAI schemas
         print("\n• OpenAI schema generation")

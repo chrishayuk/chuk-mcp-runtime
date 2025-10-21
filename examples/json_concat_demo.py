@@ -13,7 +13,6 @@ import os
 import re
 import socket
 import sys
-import time
 
 import httpx
 
@@ -23,9 +22,8 @@ import httpx
 ROOT = os.path.dirname(os.path.dirname(__file__))
 sys.path.append(ROOT)
 
-from chuk_mcp_runtime.server.server import MCPServer
 from chuk_mcp_runtime.common.mcp_tool_decorator import mcp_tool
-
+from chuk_mcp_runtime.server.server import MCPServer
 
 # ─────────────────────────────────────────────────────────────────────────────
 # 1  ‒  Define test tools
@@ -161,9 +159,7 @@ async def test_scenarios():
                 await perform_handshake(client, session_id)
 
                 # Test the tool call
-                result = await call_tool(
-                    client, session_id, "test_tool", test_case["arguments"]
-                )
+                result = await call_tool(client, session_id, "test_tool", test_case["arguments"])
 
                 if result:
                     print(f"Result: {result}")
@@ -179,9 +175,7 @@ async def test_scenarios():
 
 async def get_session_id(client: httpx.AsyncClient, sse_url: str) -> str:
     """Get session ID from SSE endpoint."""
-    async with client.stream(
-        "GET", sse_url, headers={"accept": "text/event-stream"}
-    ) as resp:
+    async with client.stream("GET", sse_url, headers={"accept": "text/event-stream"}) as resp:
         async for raw_line in resp.aiter_lines():
             if raw_line.startswith("data:"):
                 data = raw_line[5:].strip()
@@ -229,9 +223,7 @@ async def call_tool(
 
     # Listen for response
     async def sse_listener():
-        async with client.stream(
-            "GET", SSE, headers={"accept": "text/event-stream"}
-        ) as resp:
+        async with client.stream("GET", SSE, headers={"accept": "text/event-stream"}) as resp:
             async for raw_line in resp.aiter_lines():
                 if raw_line.startswith("data:"):
                     data = raw_line[5:].strip()

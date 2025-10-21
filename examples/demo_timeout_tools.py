@@ -7,9 +7,10 @@ No config.yaml needed - everything is self-contained.
 """
 
 import asyncio
-import time
 import random
-from typing import Dict, Any
+import time
+from typing import Any, Dict
+
 from chuk_mcp_runtime.common.mcp_tool_decorator import mcp_tool
 
 # ---------------------------------------------------------------------------
@@ -145,9 +146,9 @@ async def run_timeout_demo():
 
     # Initialize tools
     from chuk_mcp_runtime.common.mcp_tool_decorator import (
-        initialize_tool_registry,
         TOOLS_REGISTRY,
         get_tool_timeout,
+        initialize_tool_registry,
     )
 
     await initialize_tool_registry()
@@ -234,11 +235,7 @@ async def run_timeout_demo():
     # Detailed results
     print("\n📝 Detailed Results:")
     for result in results:
-        status_icon = (
-            "✅"
-            if result["actual_success"]
-            else ("⏰" if result["timed_out"] else "❌")
-        )
+        status_icon = "✅" if result["actual_success"] else ("⏰" if result["timed_out"] else "❌")
         expected = "✓" if result["should_succeed"] == result["actual_success"] else "✗"
         print(
             f"  {status_icon} {result['name']:<25} | {result['duration']:<8} | Expected: {expected}"
@@ -261,9 +258,7 @@ async def run_single_test(
         print(f"  🔄 Executing {tool_name} (timeout: {timeout}s)...", end=" ")
 
         # Execute with timeout
-        result = await asyncio.wait_for(
-            execute_tool(tool_name, **args), timeout=timeout
-        )
+        result = await asyncio.wait_for(execute_tool(tool_name, **args), timeout=timeout)
 
         duration = time.time() - start_time
         print(f"✅ Success ({duration:.1f}s)")

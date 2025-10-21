@@ -4,11 +4,11 @@ Debug script to specifically test the tools/list functionality
 """
 
 import json
+import os
+import select
 import subprocess
 import tempfile
 import time
-import os
-import select
 from pathlib import Path
 
 

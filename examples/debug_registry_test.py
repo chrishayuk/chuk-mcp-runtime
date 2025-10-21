@@ -8,7 +8,6 @@ A minimal test to identify the exact issue with tool registration.
 """
 
 import asyncio
-import inspect
 
 
 async def test_registry():
@@ -75,9 +74,7 @@ async def test_registry():
         # Pattern C: Named parameters - tool, name, namespace
         try:
             print("\nPattern C: Named parameters - tool, name, namespace")
-            await registry.register_tool(
-                tool=SimpleTool, name="test_tool_C", namespace="test"
-            )
+            await registry.register_tool(tool=SimpleTool, name="test_tool_C", namespace="test")
             print("✅ Success!")
         except Exception as e:
             print(f"❌ Error: {e}")

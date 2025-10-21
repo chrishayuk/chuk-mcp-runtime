@@ -4,14 +4,13 @@ Script to check for outdated packages and update pyproject.toml dependencies.
 Compatible with UV package manager and PEP 621 project configuration.
 """
 
-import subprocess
-import sys
 import json
 import re
+import subprocess
+import sys
 from pathlib import Path
+
 import toml
-import tomli_w
-from packaging import version
 
 
 def run_command(cmd, capture_output=True, text=True, check=True):
@@ -34,9 +33,7 @@ def run_command(cmd, capture_output=True, text=True, check=True):
         )
         return result
     except subprocess.CalledProcessError as e:
-        print(
-            f"❌ Command failed: {' '.join(cmd_list) if isinstance(cmd_list, list) else cmd}"
-        )
+        print(f"❌ Command failed: {' '.join(cmd_list) if isinstance(cmd_list, list) else cmd}")
         print(f"Error: {e}")
         return None
 
@@ -69,7 +66,7 @@ def get_outdated_packages():
         outdated = []
         for pkg in installed_packages:
             name = pkg["name"]
-            current_version = pkg["version"]
+            pkg["version"]
 
             # Skip local/editable packages
             if "editable" in pkg and pkg["editable"]:
@@ -164,9 +161,7 @@ def interactive_update():
         print("❌ No dependencies found in pyproject.toml")
         return
 
-    print(
-        f"📦 Found {len(main_deps)} main dependencies and {len(dev_deps)} dev dependencies"
-    )
+    print(f"📦 Found {len(main_deps)} main dependencies and {len(dev_deps)} dev dependencies")
 
     # For now, suggest manual update process since uv doesn't have direct equivalent
     print("\n💡 To update dependencies with uv:")
@@ -187,9 +182,7 @@ def interactive_update():
         else:
             print("❌ Failed to update dependencies")
     else:
-        print(
-            "ℹ️  No updates performed. You can manually update specific packages as needed."
-        )
+        print("ℹ️  No updates performed. You can manually update specific packages as needed.")
 
 
 def main():
@@ -217,9 +210,7 @@ def main():
         print("❌ No dependencies found in pyproject.toml")
         sys.exit(1)
 
-    print(
-        f"📦 Project has {len(main_deps)} main dependencies and {len(dev_deps)} dev dependencies"
-    )
+    print(f"📦 Project has {len(main_deps)} main dependencies and {len(dev_deps)} dev dependencies")
 
     # Check for updates
     if check_package_updates_with_uv():

@@ -15,13 +15,11 @@ This focuses on read-only operations that work reliably!
 """
 
 import asyncio
-import os
-import json
-import logging
 import contextlib
 import io
-from typing import Dict, Any, Optional
-from datetime import datetime
+import logging
+import os
+from typing import Any
 
 # Load environment variables
 try:
@@ -66,11 +64,11 @@ class GitHubPracticalDemo:
             return False
 
         try:
-            from chuk_mcp_runtime.proxy.manager import ProxyServerManager
             from chuk_mcp_runtime.common.mcp_tool_decorator import (
                 TOOLS_REGISTRY,
                 initialize_tool_registry,
             )
+            from chuk_mcp_runtime.proxy.manager import ProxyServerManager
 
             config = {
                 "proxy": {
@@ -146,11 +144,7 @@ class GitHubPracticalDemo:
             if isinstance(result, dict) and "content" in result:
                 content = result["content"]
                 if isinstance(content, list) and content:
-                    file_text = (
-                        content[0].text
-                        if hasattr(content[0], "text")
-                        else str(content[0])
-                    )
+                    file_text = content[0].text if hasattr(content[0], "text") else str(content[0])
                     lines = file_text.split("\n")[:3]
                     print("📄 VS Code README preview:")
                     for i, line in enumerate(lines, 1):
@@ -181,9 +175,7 @@ class GitHubPracticalDemo:
             if "github_list_issues" in self.tools:
                 issues_tool = self.tools["github_list_issues"]
                 print("\n🐛 Getting issues from microsoft/vscode...")
-                result = await issues_tool(
-                    owner="microsoft", repo="vscode", state="open"
-                )
+                result = await issues_tool(owner="microsoft", repo="vscode", state="open")
                 self.print_result("Open Issues", result, max_length=400)
 
         except Exception as e:
@@ -206,9 +198,7 @@ class GitHubPracticalDemo:
             if "github_search_issues" in self.tools:
                 issues_tool = self.tools["github_search_issues"]
                 print("\n🐛 Searching for recent Python issues...")
-                result = await issues_tool(
-                    q="language:python is:issue created:>2024-01-01"
-                )
+                result = await issues_tool(q="language:python is:issue created:>2024-01-01")
                 self.print_result("Recent Python Issues", result, max_length=300)
 
         except Exception as e:
@@ -219,9 +209,7 @@ class GitHubPracticalDemo:
         if isinstance(result, dict) and "content" in result:
             content = result["content"]
             if isinstance(content, list) and content:
-                text = (
-                    content[0].text if hasattr(content[0], "text") else str(content[0])
-                )
+                text = content[0].text if hasattr(content[0], "text") else str(content[0])
                 preview = text[:max_length] + "..." if len(text) > max_length else text
                 print(f"✅ {title} successful!")
                 print(f"📋 Preview: {preview}")

@@ -6,15 +6,14 @@ Tests both synchronous and asynchronous tool functionality,
 including the decorator, execution, and tool naming compatibility.
 """
 
-import inspect
-import pytest
 import asyncio
+import inspect
 
+import pytest
 from chuk_mcp_runtime.common.mcp_tool_decorator import (
-    mcp_tool,
-    execute_tool,
     TOOLS_REGISTRY,
-    initialize_tool_registry,
+    execute_tool,
+    mcp_tool,
 )
 from chuk_mcp_runtime.common.tool_naming import resolve_tool_name, update_naming_maps
 
@@ -128,9 +127,7 @@ def clear_registry():
 def test_tool_decorator():
     """Test that the tool decorator correctly attaches metadata."""
     # Check metadata for add_numbers
-    assert hasattr(
-        add_numbers, "_mcp_tool"
-    ), "add_numbers is missing _mcp_tool attribute"
+    assert hasattr(add_numbers, "_mcp_tool"), "add_numbers is missing _mcp_tool attribute"
     tool = add_numbers._mcp_tool
     assert tool.name == "add_numbers"
     assert tool.description == "Add two numbers"
@@ -150,9 +147,7 @@ def test_tool_decorator():
 def test_dot_notation_tool():
     """Test that tools can be registered with dot notation."""
     # Check metadata for multiply.numbers
-    assert hasattr(
-        multiply_numbers, "_mcp_tool"
-    ), "multiply_numbers is missing _mcp_tool attribute"
+    assert hasattr(multiply_numbers, "_mcp_tool"), "multiply_numbers is missing _mcp_tool attribute"
     tool = multiply_numbers._mcp_tool
     assert tool.name == "multiply.numbers"
 
@@ -164,9 +159,7 @@ def test_dot_notation_tool():
 def test_nested_prefix_tool():
     """Test that tools can be registered with nested prefixes."""
     # Check metadata for prefix.nested.subtract
-    assert hasattr(
-        subtract_numbers, "_mcp_tool"
-    ), "subtract_numbers is missing _mcp_tool attribute"
+    assert hasattr(subtract_numbers, "_mcp_tool"), "subtract_numbers is missing _mcp_tool attribute"
     tool = subtract_numbers._mcp_tool
     assert tool.name == "prefix.nested.subtract"
 

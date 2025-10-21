@@ -1,6 +1,4 @@
-import logging
-import pytest
-from chuk_mcp_runtime.server.logging_config import get_logger, configure_logging
+from chuk_mcp_runtime.server.logging_config import configure_logging, get_logger
 
 
 def test_configure_logging(monkeypatch):

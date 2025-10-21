@@ -59,11 +59,11 @@ async def _enable_tools() -> None:
 # ───────────────────────── demo per session ─────────────────────────────────
 async def _demo_session(sid: str) -> None:
     from chuk_mcp_runtime.tools.artifacts_tools import (
-        write_file,
-        read_file,
-        list_session_files,
         copy_file,
         get_file_metadata,
+        list_session_files,
+        read_file,
+        write_file,
     )
 
     print(f"\n✨ Session {sid}")
@@ -122,9 +122,7 @@ async def _demo_stats(sid_a: str, sid_b: str) -> None:
 
     print("\n📊 Storage stats")
     for tag, st in ((sid_a, stats_a), (sid_b, stats_b)):
-        print(
-            f"   {tag}: {st['session_file_count']} file(s), {st['session_total_bytes']} bytes"
-        )
+        print(f"   {tag}: {st['session_file_count']} file(s), {st['session_total_bytes']} bytes")
 
     # presign if backend supports it (not for filesystem)
     if stats_a.get("storage_provider") not in {"filesystem", "memory"}:

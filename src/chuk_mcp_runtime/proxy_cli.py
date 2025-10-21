@@ -73,9 +73,7 @@ def _parse_args() -> argparse.Namespace:
         help="executable for stdio servers (default: python)",
     )
     p.add_argument("--cwd", default="", help="working directory for stdio server")
-    p.add_argument(
-        "--args", nargs=argparse.REMAINDER, help="additional args for the stdio command"
-    )
+    p.add_argument("--args", nargs=argparse.REMAINDER, help="additional args for the stdio command")
 
     # sse options
     p.add_argument("--url", help="SSE base URL")

@@ -18,15 +18,14 @@ import asyncio
 import inspect
 import os
 import sys
-from typing import Dict, List, Any
 
 # ── project path -----------------------------------------------------
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 # ── internal imports -------------------------------------------------
-from chuk_mcp_runtime.server.config_loader import load_config, find_project_root
 from chuk_mcp_runtime.proxy.manager import ProxyServerManager
+from chuk_mcp_runtime.server.config_loader import find_project_root, load_config
 from chuk_tool_processor.registry import ToolRegistryProvider
 
 
@@ -93,9 +92,7 @@ async def find_and_run_echo_tool(proxy):
         # Create an instance if it's a class
         if inspect.isclass(echo_tool):
             tool_instance = echo_tool()
-            result = await tool_instance.execute(
-                message="Hello from show_registry demo!"
-            )
+            result = await tool_instance.execute(message="Hello from show_registry demo!")
         else:
             # Otherwise it's a function
             result = await echo_tool(message="Hello from show_registry demo!")
@@ -128,10 +125,7 @@ async def main(config_path: str) -> None:
 
         # Show tools from the proxy
         tools = await proxy.get_all_tools()
-        print(
-            f"\nproxy.get_all_tools() → {len(tools)} "
-            f"(openai_mode={proxy.openai_mode})"
-        )
+        print(f"\nproxy.get_all_tools() → {len(tools)} " f"(openai_mode={proxy.openai_mode})")
         for name in sorted(tools.keys()):
             print(f"  • {name}")
 

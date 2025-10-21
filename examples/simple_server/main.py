@@ -5,19 +5,19 @@ Example MCP Server Implementation
 This demonstrates how to use the MCP runtime to create a simple server.
 """
 
+import asyncio
 import os
 import sys
-import asyncio
-from typing import Dict, Any, List
+from typing import Any, Dict
 
 # Add the parent directory to sys.path to import chuk_mcp_runtime
 parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
+from chuk_mcp_runtime.common.mcp_tool_decorator import mcp_tool
 from chuk_mcp_runtime.server.config_loader import load_config
 from chuk_mcp_runtime.server.logging_config import configure_logging, get_logger
-from chuk_mcp_runtime.common.mcp_tool_decorator import mcp_tool
 from chuk_mcp_runtime.server.server import MCPServer
 
 

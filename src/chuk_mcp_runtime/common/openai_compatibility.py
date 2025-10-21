@@ -8,12 +8,10 @@ for CHUK MCP tools, leveraging the async capabilities of the runtime.
 
 from __future__ import annotations
 
-import asyncio
 import copy
 import inspect
-import logging
 import re
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any, Callable, Dict, List, Optional
 
 from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY, Tool
 from chuk_mcp_runtime.server.logging_config import get_logger
@@ -91,9 +89,7 @@ async def create_openai_compatible_wrapper(
     """Return a wrapper with an OpenAI-safe name *and* real signature."""
 
     # Priority 1: metadata from remote MCP list-tools
-    meta_dict: Optional[Dict[str, Any]] = getattr(
-        original_func, "_proxy_metadata", None
-    )
+    meta_dict: Optional[Dict[str, Any]] = getattr(original_func, "_proxy_metadata", None)
     schema: Dict[str, Any]
     description: str
 
@@ -233,9 +229,7 @@ class OpenAIToolsAdapter:
                 except Exception as e:
                     logger.warning(f"Error registering tool {namespace}.{name}: {e}")
         except ImportError:
-            logger.debug(
-                "ToolRegistryProvider not available, skipping registry tool registration"
-            )
+            logger.debug("ToolRegistryProvider not available, skipping registry tool registration")
 
         # Rebuild maps after registration
         self._build_maps()
@@ -311,9 +305,7 @@ class OpenAIToolsAdapter:
     # ---------- execution wrapper -----------------------------------
     async def execute_tool(self, name: str, **kw):
         """Execute a tool by name with the given kwargs."""
-        fn = self.registry.get(name) or self.registry.get(
-            self.openai_to_original.get(name, "")
-        )
+        fn = self.registry.get(name) or self.registry.get(self.openai_to_original.get(name, ""))
         if fn is None:
             raise ValueError(f"Tool not found: {name}")
 

@@ -4,22 +4,22 @@ Test module for verify_credentials.py
 Tests JWT token validation and error handling.
 """
 
-import pytest
-import jwt
-import time
 import os
-from unittest.mock import patch
+import time
 from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
-from starlette.exceptions import HTTPException
-from starlette.status import HTTP_401_UNAUTHORIZED
+import jwt
+import pytest
 
 # Import directly from the file rather than as a module
 from chuk_mcp_runtime.common.verify_credentials import (
-    validate_token,
-    JWT_SECRET_KEY,
     JWT_ALGORITHM,
+    JWT_SECRET_KEY,
+    validate_token,
 )
+from starlette.exceptions import HTTPException
+from starlette.status import HTTP_401_UNAUTHORIZED
 
 
 # --- Test fixtures ---
@@ -154,6 +154,7 @@ async def test_validate_token_with_custom_secret():
     with patch.dict(os.environ, {"JWT_SECRET_KEY": "custom-secret-key"}):
         # Re-import to get the new secret
         import importlib
+
         import chuk_mcp_runtime.common.verify_credentials
 
         importlib.reload(chuk_mcp_runtime.common.verify_credentials)

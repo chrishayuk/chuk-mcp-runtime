@@ -7,8 +7,7 @@ allowing clients to use either dot notation or underscore notation regardless
 of how tools are registered in the server.
 """
 
-import re
-from typing import Dict, Any, Callable, Optional
+from typing import Dict
 
 from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY
 from chuk_mcp_runtime.server.logging_config import get_logger
@@ -44,11 +43,7 @@ class ToolNamingResolver:
                 server_prefix = ".".join(name.split(".")[:-1])
 
                 # Standard format: server.tool (wikipedia.search)
-                std_name = (
-                    f"{server_prefix.split('.')[-1]}.{short_name}"
-                    if server_prefix
-                    else name
-                )
+                std_name = f"{server_prefix.split('.')[-1]}.{short_name}" if server_prefix else name
                 # Underscore format: server_tool (wikipedia_search)
                 underscore_name = (
                     f"{server_prefix.split('.')[-1]}_{short_name}"
@@ -70,9 +65,7 @@ class ToolNamingResolver:
                     self.dot_to_underscore_map[dot_name] = name
                     self.underscore_to_dot_map[name] = dot_name
 
-        logger.debug(
-            f"Updated tool naming maps with {len(self.dot_to_underscore_map)} entries"
-        )
+        logger.debug(f"Updated tool naming maps with {len(self.dot_to_underscore_map)} entries")
 
     def resolve_tool_name(self, name: str) -> str:
         """
@@ -135,9 +128,7 @@ class ToolNamingResolver:
             name_parts = name.replace("_", ".").split(".")
 
             if reg_parts[-1] == name_parts[-1] and (
-                len(reg_parts) > 1
-                and len(name_parts) > 1
-                and reg_parts[-2] == name_parts[-2]
+                len(reg_parts) > 1 and len(name_parts) > 1 and reg_parts[-2] == name_parts[-2]
             ):
                 return registered_name
 

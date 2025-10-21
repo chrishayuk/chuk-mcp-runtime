@@ -18,19 +18,16 @@ The real decorator attaches `_mcp_tool` lazily; we therefore call
 
 from __future__ import annotations
 
-import sys
-from types import ModuleType
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 
 import pytest
-
-from chuk_mcp_runtime.proxy import tool_wrapper as tw
-from chuk_mcp_runtime.proxy.tool_wrapper import create_proxy_tool
 from chuk_mcp_runtime.common.mcp_tool_decorator import (
     TOOLS_REGISTRY,
     initialize_tool_registry,
 )
 from chuk_mcp_runtime.common.tool_naming import update_naming_maps
+from chuk_mcp_runtime.proxy import tool_wrapper as tw
+from chuk_mcp_runtime.proxy.tool_wrapper import create_proxy_tool
 
 
 # ---------------------------------------------------------------------------#
@@ -65,9 +62,7 @@ class DummyStreamManager:
         self.calls: List[tuple[str, Dict[str, Any], str]] = []
         self.is_error = is_error
 
-    async def call_tool(
-        self, tool_name: str, arguments: Dict[str, Any], server_name: str
-    ):
+    async def call_tool(self, tool_name: str, arguments: Dict[str, Any], server_name: str):
         self.calls.append((tool_name, arguments, server_name))
         if self.is_error:
             return {"isError": True, "error": "boom!"}

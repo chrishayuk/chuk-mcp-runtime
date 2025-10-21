@@ -9,17 +9,15 @@ NOTE: These tools are DISABLED by default and must be explicitly enabled
 in configuration to be available.
 """
 
-from typing import Dict, Any, Optional
-from chuk_mcp_runtime.common.mcp_tool_decorator import mcp_tool, TOOLS_REGISTRY
+from typing import Any, Dict, Optional
+
+from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY, mcp_tool
+from chuk_mcp_runtime.server.logging_config import get_logger
 from chuk_mcp_runtime.session.session_management import (
+    clear_session_context,
     get_session_context,
     set_session_context,
-    clear_session_context,
-    SessionError,
-    SessionValidationError,
-    validate_session_parameter,
 )
-from chuk_mcp_runtime.server.logging_config import get_logger
 
 logger = get_logger("chuk_mcp_runtime.tools.session")
 
@@ -77,9 +75,7 @@ def configure_session_tools(config: Dict[str, Any]) -> None:
         return
 
     # Process individual tool configuration
-    tools_config = _session_tools_config.get(
-        "tools", DEFAULT_SESSION_TOOLS_CONFIG["tools"]
-    )
+    tools_config = _session_tools_config.get("tools", DEFAULT_SESSION_TOOLS_CONFIG["tools"])
 
     for tool_name, tool_config in tools_config.items():
         if tool_config.get("enabled", False):
@@ -95,9 +91,7 @@ def configure_session_tools(config: Dict[str, Any]) -> None:
             f"Configured {len(_enabled_session_tools)} session tools: {', '.join(sorted(_enabled_session_tools))}"
         )
     else:
-        logger.info(
-            "No session tools enabled - all tools require explicit configuration"
-        )
+        logger.info("No session tools enabled - all tools require explicit configuration")
 
 
 def is_session_tool_enabled(tool_name: str) -> bool:
@@ -140,9 +134,7 @@ async def get_current_session() -> Dict[str, Any]:
         }
 
 
-@mcp_tool(
-    name="set_session", description="Set the session context for subsequent operations"
-)
+@mcp_tool(name="set_session", description="Set the session context for subsequent operations")
 async def set_session_context_tool(session_id: str) -> str:
     """
     Set the session context for subsequent operations.
@@ -251,9 +243,7 @@ async def get_session_info_tool(session_id: str) -> Dict[str, Any]:
         raise ValueError(f"Failed to get session info: {str(e)}")
 
 
-@mcp_tool(
-    name="create_session", description="Create a new session with optional metadata"
-)
+@mcp_tool(name="create_session", description="Create a new session with optional metadata")
 async def create_session_tool(
     session_id: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
@@ -267,8 +257,8 @@ async def create_session_tool(
     Returns:
         Dictionary containing information about the created session
     """
-    import uuid
     import time
+    import uuid
 
     # Generate session ID if not provided
     if session_id is None:
@@ -351,9 +341,7 @@ async def register_session_tools(config: Dict[str, Any] | None = None) -> bool:
 
     # Which helpers are individually enabled?
     enabled_tools = {
-        name
-        for name, tcfg in sess_cfg.get("tools", {}).items()
-        if tcfg.get("enabled", False)
+        name for name, tcfg in sess_cfg.get("tools", {}).items() if tcfg.get("enabled", False)
     }
     if not enabled_tools:
         prune_all()
@@ -372,7 +360,7 @@ async def register_session_tools(config: Dict[str, Any] | None = None) -> bool:
     registered = 0
 
     for name in enabled_tools:
-        fn = ALL_SESSION_TOOLS[name]
+        ALL_SESSION_TOOLS[name]
 
         # Ensure tool is properly initialized
         from chuk_mcp_runtime.common.mcp_tool_decorator import ensure_tool_initialized

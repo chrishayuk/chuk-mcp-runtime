@@ -10,7 +10,6 @@ import os
 import re
 import socket
 import sys
-import time
 
 import httpx
 
@@ -18,8 +17,8 @@ import httpx
 ROOT = os.path.dirname(os.path.dirname(__file__))
 sys.path.append(ROOT)
 
-from chuk_mcp_runtime.server.server import MCPServer
 from chuk_mcp_runtime.common.mcp_tool_decorator import mcp_tool
+from chuk_mcp_runtime.server.server import MCPServer
 
 
 @mcp_tool(name="echo_test", description="Simple echo test")

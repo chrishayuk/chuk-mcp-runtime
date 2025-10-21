@@ -4,11 +4,11 @@ Debug script to check what happens during server startup with tools
 """
 
 import json
+import os
+import select
 import subprocess
 import tempfile
 import time
-import os
-import select
 from pathlib import Path
 
 
@@ -102,9 +102,7 @@ def debug_server_tools():
             print(f"📊 Registry tools: {match.group(1)}")
 
         # Tools with metadata
-        match = re.search(
-            r"Tools with metadata after initialization: (\d+)/(\d+)", log_text
-        )
+        match = re.search(r"Tools with metadata after initialization: (\d+)/(\d+)", log_text)
         if match:
             print(f"📊 Tools with metadata: {match.group(1)}/{match.group(2)}")
 
@@ -150,7 +148,7 @@ def debug_server_tools():
                     try:
                         response = json.loads(line)
                         if response.get("id") == 2:
-                            print(f"✅ Tools list response received!")
+                            print("✅ Tools list response received!")
                             if "result" in response:
                                 tools = response["result"].get("tools", [])
                                 print(f"📊 Found {len(tools)} tools in response")

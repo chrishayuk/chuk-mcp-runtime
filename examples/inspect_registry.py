@@ -10,8 +10,6 @@ with improved error handling for the metadata parameter.
 
 import asyncio
 import inspect
-import sys
-from typing import Any, Dict, List, Set
 
 
 async def inspect_registry_api():
@@ -41,9 +39,7 @@ async def inspect_registry_api():
 
         # Detailed info on registration methods
         registration_methods = [
-            m
-            for m in methods
-            if any(term in m.lower() for term in ["register", "add", "create"])
+            m for m in methods if any(term in m.lower() for term in ["register", "add", "create"])
         ]
 
         print(f"\nRegistration methods ({len(registration_methods)}):")
@@ -59,34 +55,22 @@ async def inspect_registry_api():
             param_details = []
             for name, param in sig.parameters.items():
                 param_type = (
-                    param.annotation
-                    if param.annotation != inspect.Parameter.empty
-                    else "Any"
+                    param.annotation if param.annotation != inspect.Parameter.empty else "Any"
                 )
-                default = (
-                    ""
-                    if param.default == inspect.Parameter.empty
-                    else f" = {param.default}"
-                )
+                default = "" if param.default == inspect.Parameter.empty else f" = {param.default}"
                 param_details.append(f"{name}: {param_type}{default}")
 
-            print(f"    Parameters:")
+            print("    Parameters:")
             for detail in param_details:
                 print(f"      - {detail}")
 
             if method.__doc__:
                 doc = method.__doc__.strip()
-                print(
-                    f"    Docstring: {doc[:60]}..."
-                    if len(doc) > 60
-                    else f"    Docstring: {doc}"
-                )
+                print(f"    Docstring: {doc[:60]}..." if len(doc) > 60 else f"    Docstring: {doc}")
 
         # Check for tool listing methods
         listing_methods = [
-            m
-            for m in methods
-            if any(term in m.lower() for term in ["list", "get_all", "find"])
+            m for m in methods if any(term in m.lower() for term in ["list", "get_all", "find"])
         ]
 
         print(f"\nTool listing methods ({len(listing_methods)}):")
@@ -167,9 +151,7 @@ async def inspect_registry_api():
                         try:
                             # Try with minimal parameters
                             print("Registering with minimal parameters")
-                            await registry.register_tool(
-                                tool=SampleProxyTool, name="sample_echo3"
-                            )
+                            await registry.register_tool(tool=SampleProxyTool, name="sample_echo3")
                             print("✅ Success! Registered tool with minimal parameters")
                         except Exception as e3:
                             print(f"❌ Failed with minimal parameters: {e3}")

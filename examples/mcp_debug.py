@@ -5,10 +5,10 @@ examples/mcp_debug.py
 Debug script to check what's happening with the MCP server.
 """
 
+import os
 import subprocess
 import tempfile
 import time
-import os
 from pathlib import Path
 
 
@@ -76,13 +76,13 @@ def debug_server():
                         print(f"   {line.rstrip()}")
                         output_lines.append(line)
                     time.sleep(0.1)
-                except:
+                except Exception:
                     break
 
             if process.poll() is not None:
                 break
 
-        print(f"\n📊 Server status after 5 seconds:")
+        print("\n📊 Server status after 5 seconds:")
         if process.poll() is None:
             print("✅ Server is still running")
         else:

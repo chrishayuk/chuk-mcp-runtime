@@ -14,13 +14,11 @@ No external dependencies required - pure Python testing!
 """
 
 import asyncio
-import json
-import time
-import os
-import tempfile
 import logging
-from typing import Dict, Any, List, Optional
-from unittest.mock import AsyncMock, MagicMock
+import os
+import time
+from typing import Any, Dict
+
 from dotenv import load_dotenv
 
 # Load environment
@@ -245,8 +243,8 @@ class ProxyIntegrationDemo:
     async def register_local_tools(self):
         """Register local hosted tools."""
         from chuk_mcp_runtime.common.mcp_tool_decorator import (
-            mcp_tool,
             initialize_tool_registry,
+            mcp_tool,
         )
 
         @mcp_tool(name="local_time", description="Get current time from local server")
@@ -290,9 +288,7 @@ class ProxyIntegrationDemo:
 
             tools = list(TOOLS_REGISTRY.keys())
             local_tools = [t for t in tools if t.startswith("local_")]
-            proxy_tools = [
-                t for t in tools if any(x in t for x in ["github", "weather", "proxy"])
-            ]
+            proxy_tools = [t for t in tools if any(x in t for x in ["github", "weather", "proxy"])]
 
             return {
                 "status": "running",
@@ -310,8 +306,8 @@ class ProxyIntegrationDemo:
     async def test_proxy_tool_creation(self):
         """Test creating proxy tools without external dependencies."""
         try:
-            from chuk_mcp_runtime.proxy.tool_wrapper import create_proxy_tool
             from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY
+            from chuk_mcp_runtime.proxy.tool_wrapper import create_proxy_tool
 
             # Create mock proxy tools
             github_tools = await self.mock_stream_manager.list_tools("github")
@@ -363,9 +359,7 @@ class ProxyIntegrationDemo:
             assert status_result["status"] == "running"
             assert status_result["session_id"] == self.session_id
 
-            self.test_results.append(
-                ("Local Tools", True, "All 3 local tools working correctly")
-            )
+            self.test_results.append(("Local Tools", True, "All 3 local tools working correctly"))
             logger.info("✅ Local tools test passed")
 
         except Exception as e:
@@ -378,9 +372,7 @@ class ProxyIntegrationDemo:
             from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY
 
             # Test if proxy tools exist
-            proxy_tools = [
-                name for name in TOOLS_REGISTRY.keys() if "proxy.github" in name
-            ]
+            proxy_tools = [name for name in TOOLS_REGISTRY.keys() if "proxy.github" in name]
 
             if proxy_tools:
                 # Test a proxy tool
@@ -397,9 +389,7 @@ class ProxyIntegrationDemo:
                         f"Found and tested {len(proxy_tools)} proxy tools",
                     )
                 )
-                logger.info(
-                    f"✅ Mock proxy tools test passed - {len(proxy_tools)} tools"
-                )
+                logger.info(f"✅ Mock proxy tools test passed - {len(proxy_tools)} tools")
             else:
                 self.test_results.append(
                     (
@@ -417,8 +407,8 @@ class ProxyIntegrationDemo:
     async def test_tool_naming_conventions(self):
         """Test tool naming convention handling."""
         try:
-            from chuk_mcp_runtime.common.tool_naming import resolve_tool_name
             from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY
+            from chuk_mcp_runtime.common.tool_naming import resolve_tool_name
 
             # Test various naming patterns
             test_cases = [
@@ -431,9 +421,7 @@ class ProxyIntegrationDemo:
             successful_resolutions = 0
             for input_name, expected_pattern in test_cases:
                 resolved = resolve_tool_name(input_name)
-                if resolved in TOOLS_REGISTRY or any(
-                    expected_pattern in resolved for _ in [1]
-                ):
+                if resolved in TOOLS_REGISTRY or any(expected_pattern in resolved for _ in [1]):
                     successful_resolutions += 1
 
             self.test_results.append(
@@ -443,9 +431,7 @@ class ProxyIntegrationDemo:
                     f"Resolved {successful_resolutions}/{len(test_cases)} naming patterns",
                 )
             )
-            logger.info(
-                f"✅ Tool naming test passed - {successful_resolutions} resolutions"
-            )
+            logger.info(f"✅ Tool naming test passed - {successful_resolutions} resolutions")
 
         except Exception as e:
             self.test_results.append(("Tool Naming Conventions", False, str(e)))
@@ -454,11 +440,11 @@ class ProxyIntegrationDemo:
     async def test_openai_compatibility(self):
         """Test OpenAI-compatible naming."""
         try:
-            from chuk_mcp_runtime.common.openai_compatibility import (
-                to_openai_compatible_name,
-                create_openai_compatible_wrapper,
-            )
             from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY
+            from chuk_mcp_runtime.common.openai_compatibility import (
+                create_openai_compatible_wrapper,
+                to_openai_compatible_name,
+            )
 
             # Test name conversion
             test_names = [
@@ -479,9 +465,7 @@ class ProxyIntegrationDemo:
                 if "." in tool_name:
                     try:
                         func = TOOLS_REGISTRY[tool_name]
-                        wrapper = await create_openai_compatible_wrapper(
-                            tool_name, func
-                        )
+                        wrapper = await create_openai_compatible_wrapper(tool_name, func)
                         if wrapper:
                             wrappers_created += 1
                             break  # Just test one for demo
@@ -515,18 +499,14 @@ class ProxyIntegrationDemo:
             proxy_tools = [t for t in all_tools if "proxy" in t or "github" in t]
 
             # Test that we have both types
-            assert (
-                len(local_tools) >= 3
-            ), f"Expected at least 3 local tools, got {len(local_tools)}"
+            assert len(local_tools) >= 3, f"Expected at least 3 local tools, got {len(local_tools)}"
 
             # Test local status which reports on the mixed environment
             status = await execute_tool("local_status")
             assert status["total_tools"] >= 3
 
             # Test both local and proxy tool execution patterns
-            local_result = await execute_tool(
-                "local_echo", message="Testing mixed environment"
-            )
+            local_result = await execute_tool("local_echo", message="Testing mixed environment")
             assert local_result["source"] == "local_hosted_tool"
 
             self.test_results.append(
@@ -536,9 +516,7 @@ class ProxyIntegrationDemo:
                     f"Local tools: {len(local_tools)}, Proxy tools: {len(proxy_tools)}, Total: {len(all_tools)}",
                 )
             )
-            logger.info(
-                f"✅ Mixed environment test passed - {len(all_tools)} total tools"
-            )
+            logger.info(f"✅ Mixed environment test passed - {len(all_tools)} total tools")
 
         except Exception as e:
             self.test_results.append(("Mixed Tool Environment", False, str(e)))
@@ -547,8 +525,8 @@ class ProxyIntegrationDemo:
     async def test_proxy_architecture(self):
         """Test the proxy architecture components."""
         try:
-            from chuk_mcp_runtime.proxy.manager import ProxyServerManager
             from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY
+            from chuk_mcp_runtime.proxy.manager import ProxyServerManager
 
             # Test proxy manager creation
             config = {
@@ -622,7 +600,7 @@ class ProxyIntegrationDemo:
 
         print(f"\n📊 OVERALL: {passed}/{total} tests passed ({passed/total*100:.1f}%)")
 
-        print(f"\n📋 DETAILED RESULTS:")
+        print("\n📋 DETAILED RESULTS:")
         print("-" * 85)
 
         for test_name, success, details in self.test_results:

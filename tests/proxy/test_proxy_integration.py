@@ -6,19 +6,17 @@ Tests how the proxy system integrates with the entry point
 and how it handles tool naming conventions.
 """
 
-import pytest
-import os
 import sys
-import asyncio
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
+
+import pytest
 
 # Import our common test mocks
 from tests.common.test_mocks import (
-    MockProxyServerManager,
-    MockMCPServer,
-    MockServerRegistry,
     AsyncMock,
-    run_async,
+    MockMCPServer,
+    MockProxyServerManager,
+    MockServerRegistry,
 )
 
 # Import the entry module with our mocks already installed
@@ -69,9 +67,7 @@ def mock_stdio_server():
 def setup_mocks(monkeypatch):
     """Set up common mocks for tests."""
     # Mock config and logging
-    monkeypatch.setattr(
-        entry, "load_config", lambda paths, default: {"proxy": {"enabled": True}}
-    )
+    monkeypatch.setattr(entry, "load_config", lambda paths, default: {"proxy": {"enabled": True}})
     monkeypatch.setattr(entry, "configure_logging", lambda cfg: None)
     monkeypatch.setattr(entry, "find_project_root", lambda: "/tmp")
 
@@ -164,7 +160,6 @@ async def test_proxy_disabled(setup_mocks):
     # Run directly without patching
     async def mock_runtime():
         config = {"proxy": {"enabled": False}}
-        project_root = "/tmp"
 
         # Initialize server directly
         server = TrackingServer(config)
@@ -208,7 +203,7 @@ async def test_proxy_server_error_handling(setup_mocks):
         try:
             proxy_mgr = FailingProxyManager(config, project_root)
             await proxy_mgr.start_servers()
-        except Exception as e:
+        except Exception:
             # Log error but continue
             pass
 

@@ -27,9 +27,9 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from chuk_mcp_runtime.server.config_loader import load_config, find_project_root
-from chuk_mcp_runtime.server.logging_config import configure_logging
 from chuk_mcp_runtime.proxy.manager import ProxyServerManager
+from chuk_mcp_runtime.server.config_loader import find_project_root, load_config
+from chuk_mcp_runtime.server.logging_config import configure_logging
 
 HERE = Path(__file__).resolve().parent
 CONFIG_YAML = HERE / "proxy_config.yaml"

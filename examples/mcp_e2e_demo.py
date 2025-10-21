@@ -6,11 +6,11 @@ Test complete MCP flow with proper protocol sequence
 """
 
 import json
+import os
+import select
 import subprocess
 import tempfile
 import time
-import os
-import select
 from pathlib import Path
 
 
@@ -104,9 +104,7 @@ def test_complete_flow():
         print("✅ Initialized")
 
         # 2. Send initialized notification
-        send_and_receive(
-            {"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}}
-        )
+        send_and_receive({"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}})
         print("✅ Initialization complete")
 
         # 3. Create a file (with session_id)
@@ -195,7 +193,7 @@ def test_complete_flow():
         print(f"✅ File content: {file_content[:50]}...")
 
         # 6. Get storage stats (with session_id)
-        print(f"\n📊 Getting storage stats...")
+        print("\n📊 Getting storage stats...")
         stats_response = send_and_receive(
             {
                 "jsonrpc": "2.0",
@@ -218,11 +216,11 @@ def test_complete_flow():
             f"✅ Storage stats: {stats['session_file_count']} files, {stats['session_total_bytes']} bytes"
         )
 
-        print(f"\n🎉 Complete MCP flow successful!")
-        print(f"✅ Protocol: Initialize → Tools → File ops → Read → Stats")
-        print(f"✅ All 10 tools available and working")
-        print(f"✅ Session management working")
-        print(f"✅ Artifact storage working")
+        print("\n🎉 Complete MCP flow successful!")
+        print("✅ Protocol: Initialize → Tools → File ops → Read → Stats")
+        print("✅ All 10 tools available and working")
+        print("✅ Session management working")
+        print("✅ Artifact storage working")
 
         return True
 

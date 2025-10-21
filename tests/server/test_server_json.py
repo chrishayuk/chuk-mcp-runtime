@@ -3,14 +3,13 @@
 Fixed JSON serialization tests with proper server tracking.
 """
 
-import pytest
 import asyncio
 import json
 from contextlib import asynccontextmanager
 
+import pytest
+from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY, mcp_tool
 from chuk_mcp_runtime.server.server import MCPServer
-from chuk_mcp_runtime.common.mcp_tool_decorator import mcp_tool, TOOLS_REGISTRY
-from mcp.types import TextContent
 
 # Capture FakeServer instances - CRITICAL: Use module-level variable
 _created = []
@@ -97,9 +96,7 @@ def test_json_serialization_and_awaiting():
     run_async(server.serve())
 
     # Now check that fake server was created
-    assert (
-        len(_created) > 0
-    ), f"No fake server was created. _created contains: {_created}"
+    assert len(_created) > 0, f"No fake server was created. _created contains: {_created}"
     fake = _created[-1]
     assert "call_tool" in fake.handlers, "call_tool handler not found"
 
@@ -127,9 +124,7 @@ def test_error_handling_with_naming_resolution():
 
     run_async(server.serve())
 
-    assert (
-        len(_created) > 0
-    ), f"No fake server was created. _created contains: {_created}"
+    assert len(_created) > 0, f"No fake server was created. _created contains: {_created}"
     fake = _created[-1]
     assert "call_tool" in fake.handlers, "call_tool handler not found"
 
@@ -162,9 +157,7 @@ def test_naming_compatibility():
 
     run_async(server.serve())
 
-    assert (
-        len(_created) > 0
-    ), f"No fake server was created. _created contains: {_created}"
+    assert len(_created) > 0, f"No fake server was created. _created contains: {_created}"
     fake = _created[-1]
     assert "call_tool" in fake.handlers, "call_tool handler not found"
 

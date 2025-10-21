@@ -12,7 +12,6 @@ import os
 import re
 import socket
 import sys
-import time
 
 import httpx
 
@@ -20,8 +19,8 @@ import httpx
 ROOT = os.path.dirname(os.path.dirname(__file__))
 sys.path.append(ROOT)
 
-from chuk_mcp_runtime.server.server import MCPServer
 from chuk_mcp_runtime.common.mcp_tool_decorator import mcp_tool
+from chuk_mcp_runtime.server.server import MCPServer
 
 
 @mcp_tool(name="test_concat", description="Test concatenation handling")
@@ -128,9 +127,7 @@ async def run_mcp_demo():
 
         # Step 5: Test simple tool call
         print("5. Testing simple tool call...")
-        await test_tool_call(
-            client, session_id, "simple_echo", {"message": "Hello World!"}
-        )
+        await test_tool_call(client, session_id, "simple_echo", {"message": "Hello World!"})
 
         # Step 6: Test concatenation scenarios (simulate different ways concatenation might occur)
         print("6. Testing parameter handling...")
@@ -164,9 +161,7 @@ async def test_tool_call(
     result_data = {"response": None}
 
     async def response_listener():
-        async with client.stream(
-            "GET", SSE, headers={"accept": "text/event-stream"}
-        ) as resp:
+        async with client.stream("GET", SSE, headers={"accept": "text/event-stream"}) as resp:
             async for raw_line in resp.aiter_lines():
                 if raw_line.startswith("data:"):
                     data = raw_line[5:].strip()
@@ -209,11 +204,7 @@ async def test_tool_call(
             result = result_data["response"].get("result", {})
             if result.get("isError"):
                 content = result.get("content", [])
-                error_text = (
-                    content[0].get("text", "Unknown error")
-                    if content
-                    else "Unknown error"
-                )
+                error_text = content[0].get("text", "Unknown error") if content else "Unknown error"
                 print(f"   ❌ Tool error: {error_text}")
             else:
                 content = result.get("content", [])

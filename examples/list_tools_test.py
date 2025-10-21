@@ -11,12 +11,12 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(__file__))
 sys.path.append(ROOT)
 
-from chuk_mcp_runtime.server.server import MCPServer
 from chuk_mcp_runtime.common.mcp_tool_decorator import (
-    mcp_tool,
     TOOLS_REGISTRY,
     initialize_tool_registry,
+    mcp_tool,
 )
+from chuk_mcp_runtime.server.server import MCPServer
 
 
 @mcp_tool(name="test_tool", description="Test tool")
@@ -46,7 +46,6 @@ async def test_list_tools_directly():
     # Try to manually call what list_tools does
     print("\nManually testing list_tools logic:")
 
-    tools = []
     for tool_name, func in server_instance.tools_registry.items():
         print(f"\nProcessing tool: {tool_name}")
         print(f"  Function: {func}")
@@ -75,8 +74,7 @@ async def test_list_tools_directly():
 
             # Try to create a list with this tool
             try:
-                test_list = [tool_obj]
-                print(f"  ✅ Can create list with this tool")
+                print("  ✅ Can create list with this tool")
 
                 # Try to convert to JSON (this might be where it fails)
                 import json
@@ -88,11 +86,11 @@ async def test_list_tools_directly():
                         "description": getattr(tool_obj, "description", "unknown"),
                         "inputSchema": getattr(tool_obj, "inputSchema", {}),
                     }
-                    json_str = json.dumps(serialized)
-                    print(f"  ✅ Can serialize tool to JSON")
+                    json.dumps(serialized)
+                    print("  ✅ Can serialize tool to JSON")
                 except Exception as e:
                     print(f"  ❌ JSON serialization failed: {e}")
-                    print(f"      This might be the cause of the ASGI exception!")
+                    print("      This might be the cause of the ASGI exception!")
 
             except Exception as e:
                 print(f"  ❌ Error with tool object: {e}")

@@ -9,17 +9,17 @@ NOTE: These tools are DISABLED by default and must be explicitly enabled
 in configuration to be available.
 """
 
-import os
-import json
 import base64
-from typing import List, Dict, Any, Optional, Union, Set
+import os
 from datetime import datetime
+from typing import Any, Dict, List, Optional, Set, Union
 
 # runtime
-from chuk_artifacts import ArtifactStore, ArtifactNotFoundError
-from chuk_mcp_runtime.common.mcp_tool_decorator import mcp_tool, TOOLS_REGISTRY
-from chuk_mcp_runtime.session.session_management import validate_session_parameter
+from chuk_artifacts import ArtifactNotFoundError, ArtifactStore
+
+from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY, mcp_tool
 from chuk_mcp_runtime.server.logging_config import get_logger
+from chuk_mcp_runtime.session.session_management import validate_session_parameter
 
 # logger
 logger = get_logger("chuk_mcp_runtime.tools.artifacts")
@@ -96,9 +96,7 @@ def configure_artifacts_tools(config: Dict[str, Any]) -> None:
             f"Configured {len(_enabled_tools)} artifact tools: {', '.join(sorted(_enabled_tools))}"
         )
     else:
-        logger.info(
-            "No artifact tools enabled - all tools require explicit configuration"
-        )
+        logger.info("No artifact tools enabled - all tools require explicit configuration")
 
 
 def is_tool_enabled(tool_name: str) -> bool:
@@ -118,9 +116,7 @@ async def get_artifact_store() -> ArtifactStore:
         session_provider = _artifacts_config.get("session_provider") or os.getenv(
             "ARTIFACT_SESSION_PROVIDER", "memory"
         )
-        bucket = _artifacts_config.get("bucket") or os.getenv(
-            "ARTIFACT_BUCKET", "mcp-runtime"
-        )
+        bucket = _artifacts_config.get("bucket") or os.getenv("ARTIFACT_BUCKET", "mcp-runtime")
 
         # Set up filesystem root if using filesystem storage
         if storage_provider == "filesystem":
@@ -137,9 +133,7 @@ async def get_artifact_store() -> ArtifactStore:
             bucket=bucket,
         )
 
-        logger.info(
-            f"Created artifact store: {storage_provider}/{session_provider} -> {bucket}"
-        )
+        logger.info(f"Created artifact store: {storage_provider}/{session_provider} -> {bucket}")
 
     return _artifact_store
 
@@ -193,9 +187,7 @@ async def upload_file(
     )
 
     session_manager = create_mcp_session_manager({})
-    effective_session = await validate_session_parameter(
-        session_id, "upload_file", session_manager
-    )
+    effective_session = await validate_session_parameter(session_id, "upload_file", session_manager)
 
     store = await get_artifact_store()
 
@@ -253,9 +245,7 @@ async def write_file(
     )
 
     session_manager = create_mcp_session_manager({})
-    effective_session = await validate_session_parameter(
-        session_id, "write_file", session_manager
-    )
+    effective_session = await validate_session_parameter(session_id, "write_file", session_manager)
 
     store = await get_artifact_store()
 
@@ -304,9 +294,7 @@ async def read_file(
     )
 
     session_manager = create_mcp_session_manager({})
-    effective_session = await validate_session_parameter(
-        session_id, "read_file", session_manager
-    )
+    await validate_session_parameter(session_id, "read_file", session_manager)
 
     store = await get_artifact_store()
 
@@ -402,9 +390,7 @@ async def delete_file(artifact_id: str, session_id: Optional[str] = None) -> str
     )
 
     session_manager = create_mcp_session_manager({})
-    effective_session = await validate_session_parameter(
-        session_id, "delete_file", session_manager
-    )
+    await validate_session_parameter(session_id, "delete_file", session_manager)
 
     store = await get_artifact_store()
 
@@ -495,9 +481,7 @@ async def copy_file(
     )
 
     session_manager = create_mcp_session_manager({})
-    effective_session = await validate_session_parameter(
-        session_id, "copy_file", session_manager
-    )
+    await validate_session_parameter(session_id, "copy_file", session_manager)
 
     store = await get_artifact_store()
 
@@ -549,9 +533,7 @@ async def move_file(
     )
 
     session_manager = create_mcp_session_manager({})
-    effective_session = await validate_session_parameter(
-        session_id, "move_file", session_manager
-    )
+    await validate_session_parameter(session_id, "move_file", session_manager)
 
     store = await get_artifact_store()
 
@@ -562,9 +544,7 @@ async def move_file(
             **(meta or {}),
         }
 
-        await store.move_file(
-            artifact_id, new_filename=new_filename, new_meta=move_meta
-        )
+        await store.move_file(artifact_id, new_filename=new_filename, new_meta=move_meta)
 
         return f"File moved successfully: {artifact_id} -> {new_filename}"
 
@@ -573,9 +553,7 @@ async def move_file(
 
 
 @mcp_tool(name="get_file_metadata", description="Get file metadata")
-async def get_file_metadata(
-    artifact_id: str, session_id: Optional[str] = None
-) -> Dict[str, Any]:
+async def get_file_metadata(artifact_id: str, session_id: Optional[str] = None) -> Dict[str, Any]:
     """
     Get detailed metadata for a file.
 
@@ -594,9 +572,7 @@ async def get_file_metadata(
     )
 
     session_manager = create_mcp_session_manager({})
-    effective_session = await validate_session_parameter(
-        session_id, "get_file_metadata", session_manager
-    )
+    await validate_session_parameter(session_id, "get_file_metadata", session_manager)
 
     store = await get_artifact_store()
 
@@ -633,9 +609,7 @@ async def get_presigned_url(
     )
 
     session_manager = create_mcp_session_manager({})
-    effective_session = await validate_session_parameter(
-        session_id, "get_presigned_url", session_manager
-    )
+    await validate_session_parameter(session_id, "get_presigned_url", session_manager)
 
     store = await get_artifact_store()
 
@@ -726,14 +700,10 @@ async def register_artifacts_tools(config: Dict[str, Any] | None = None) -> bool
     if not art_cfg.get("enabled", False):
         for t in TOOL_FUNCTIONS:
             TOOLS_REGISTRY.pop(t, None)
-        logger.info(
-            "Artifacts disabled - use 'artifacts.enabled: true' in config to enable"
-        )
+        logger.info("Artifacts disabled - use 'artifacts.enabled: true' in config to enable")
         return False
 
-    enabled_helpers = {
-        n for n, tc in art_cfg.get("tools", {}).items() if tc.get("enabled", False)
-    }
+    enabled_helpers = {n for n, tc in art_cfg.get("tools", {}).items() if tc.get("enabled", False)}
     if not enabled_helpers:
         for t in TOOL_FUNCTIONS:
             TOOLS_REGISTRY.pop(t, None)
@@ -757,7 +727,7 @@ async def register_artifacts_tools(config: Dict[str, Any] | None = None) -> bool
     # 3) register the wanted helpers
     registered = 0
     for name in enabled_helpers:
-        fn = TOOL_FUNCTIONS[name]
+        TOOL_FUNCTIONS[name]
 
         # Ensure tool is properly initialized
         from chuk_mcp_runtime.common.mcp_tool_decorator import ensure_tool_initialized
@@ -789,9 +759,7 @@ def get_artifacts_tools_info() -> Dict[str, Any]:
     return {
         "available": True,
         "configured": bool(_artifacts_config),
-        "enabled_globally": _artifacts_config.get("enabled", False)
-        if _artifacts_config
-        else False,
+        "enabled_globally": _artifacts_config.get("enabled", False) if _artifacts_config else False,
         "enabled_tools": list(_enabled_tools),
         "disabled_tools": [t for t in all_tools if t not in _enabled_tools],
         "total_tools": len(all_tools),

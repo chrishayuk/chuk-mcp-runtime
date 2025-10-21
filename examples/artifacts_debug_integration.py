@@ -12,9 +12,9 @@ from __future__ import annotations
 
 import asyncio
 import os
+import shutil
 import sys
 import tempfile
-import shutil
 from pathlib import Path
 from typing import Any, Dict
 
@@ -80,15 +80,13 @@ def check_specific_imports() -> bool:
         )
         print("✅ chuk_artifacts.ArtifactStore: OK →", inst.__class__.__name__)
         for meth in ("store", "retrieve", "list_by_session", "validate_configuration"):
-            print(
-                f"  • {meth.ljust(22)} :", "yes" if hasattr(inst, meth) else "MISSING"
-            )
+            print(f"  • {meth.ljust(22)} :", "yes" if hasattr(inst, meth) else "MISSING")
     except Exception as exc:
         print(f"❌ chuk_artifacts import/usage failed: {exc}")
         return False
 
     try:
-        from chuk_mcp_runtime.tools import ARTIFACTS_TOOLS_AVAILABLE, ARTIFACT_TOOLS  # type: ignore
+        from chuk_mcp_runtime.tools import ARTIFACT_TOOLS, ARTIFACTS_TOOLS_AVAILABLE  # type: ignore
 
         print("✅ chuk_mcp_runtime.tools import: OK")
         print("   Tools available flag:", ARTIFACTS_TOOLS_AVAILABLE)
@@ -144,9 +142,9 @@ async def test_basic_integration() -> bool:  # noqa: C901 - (complexity acceptab
 
     from chuk_mcp_runtime.tools.artifacts_tools import (
         get_artifact_store,
-        write_file,
         list_session_files,
-    )  # type: ignore
+        write_file,
+    )
 
     # 1) Temp workspace + env vars
     tmp_root = Path(tempfile.mkdtemp(prefix="integration_test_")).resolve()
@@ -199,9 +197,7 @@ async def _main() -> None:
     availability = check_package_availability()
 
     if not availability.get("chuk_artifacts"):
-        print(
-            "\n⚠️  chuk_artifacts not installed → please run `pip install chuk-artifacts`."
-        )
+        print("\n⚠️  chuk_artifacts not installed → please run `pip install chuk-artifacts`.")
         return
 
     if not check_specific_imports():

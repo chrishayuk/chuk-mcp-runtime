@@ -18,7 +18,6 @@ from pathlib import Path
 def send_request(process, request, timeout=10):
     """Send a JSON-RPC request to the server and get response."""
     import select
-    import sys
 
     request_line = json.dumps(request) + "\n"
     print(f"   Sending: {json.dumps(request)}")
@@ -121,9 +120,7 @@ def test_mcp_server_basic():
         response = send_request(process, init_request, timeout=10)
         if response and response.get("id") == 1 and "result" in response:
             print("✅ Initialization successful")
-            print(
-                f"   Server: {response['result'].get('serverInfo', {}).get('name', 'unknown')}"
-            )
+            print(f"   Server: {response['result'].get('serverInfo', {}).get('name', 'unknown')}")
         else:
             print(f"❌ Initialization failed: {response}")
             return False
@@ -202,7 +199,7 @@ def test_mcp_server_basic():
             result = response["result"]
             if "content" in result and result["content"]:
                 content_text = result["content"][0].get("text", "")
-                print(f"✅ Tool execution successful")
+                print("✅ Tool execution successful")
                 print(f"   Result: {content_text[:60]}...")
 
                 # Extract artifact ID for next test
@@ -231,9 +228,7 @@ def test_mcp_server_basic():
                             files_json = result["content"][0].get("text", "[]")
                             try:
                                 files = json.loads(files_json)
-                                print(
-                                    f"✅ File listing successful: {len(files)} files found"
-                                )
+                                print(f"✅ File listing successful: {len(files)} files found")
                                 for file_info in files:
                                     print(
                                         f"   • {file_info.get('filename', 'unknown')} ({file_info.get('bytes', 0)} bytes)"
@@ -275,7 +270,7 @@ def test_mcp_server_basic():
             if process and process.poll() is None:
                 process.terminate()
                 process.wait(timeout=5)
-        except:
+        except Exception:
             if process:
                 process.kill()
 

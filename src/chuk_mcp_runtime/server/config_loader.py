@@ -6,11 +6,12 @@ This module provides functionality to load and manage
 configuration files for CHUK MCP servers from multiple potential locations.
 """
 
+import logging
 import os
 import sys
+from typing import Any, Dict, Optional
+
 import yaml
-import logging
-from typing import Dict, Any, List, Optional
 
 # Configure logger to log to stderr
 logger = logging.getLogger("chuk_mcp_runtime.config")
@@ -76,9 +77,7 @@ def load_config(config_paths=None, default_config=None):
                     default_config.update(file_config)
 
                     # Ensure only_openai_tools is false if openai_compatible is false
-                    if not default_config.get("proxy", {}).get(
-                        "openai_compatible", False
-                    ):
+                    if not default_config.get("proxy", {}).get("openai_compatible", False):
                         default_config["proxy"]["only_openai_tools"] = False
 
                     return default_config

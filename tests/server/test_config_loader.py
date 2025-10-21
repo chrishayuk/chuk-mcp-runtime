@@ -1,11 +1,10 @@
 import os
-import tempfile
+
 import yaml
-import pytest
 from chuk_mcp_runtime.server.config_loader import (
-    load_config,
     find_project_root,
     get_config_value,
+    load_config,
 )
 
 

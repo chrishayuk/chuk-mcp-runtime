@@ -1,6 +1,3 @@
-import os
-import sys
-import pytest
 from chuk_mcp_runtime.server import config_loader
 
 
@@ -20,7 +17,7 @@ def test_logging_to_stderr(tmp_path, monkeypatch, caplog, capsys):
     caplog.clear()
 
     # Run load_config() which should attempt to load the invalid file.
-    config = config_loader.load_config(config_paths=config_paths)
+    config_loader.load_config(config_paths=config_paths)
 
     # Assert that we received a warning log message via caplog.
     assert "Error loading config from" in caplog.text

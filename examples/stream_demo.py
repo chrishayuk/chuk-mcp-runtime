@@ -12,7 +12,14 @@ This is the smallest possible end-to-end demo that:
    - handles the session-ID handshake required by SseServerTransport
 """
 
-import asyncio, contextlib, json, os, re, socket, sys, uuid
+import asyncio
+import contextlib
+import json
+import os
+import re
+import socket
+import sys
+
 import httpx
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -21,8 +28,8 @@ import httpx
 ROOT = os.path.dirname(os.path.dirname(__file__))
 sys.path.append(ROOT)
 
-from chuk_mcp_runtime.server.server import MCPServer
 from chuk_mcp_runtime.common.mcp_tool_decorator import mcp_tool
+from chuk_mcp_runtime.server.server import MCPServer
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -101,30 +108,20 @@ async def run_client(prompt: str):
                             try:
                                 obj = json.loads(data)
                                 if isinstance(obj, dict) and "session_id" in obj:
-                                    print(
-                                        f"[DEBUG] Found session_id in JSON: {obj['session_id']}"
-                                    )
+                                    print(f"[DEBUG] Found session_id in JSON: {obj['session_id']}")
                                     session_fut.set_result(obj["session_id"])
                                     continue
                             except json.JSONDecodeError:
                                 pass
-                            m = WELCOME_RX.search(
-                                data
-                            )  # Changed from fullmatch to search
+                            m = WELCOME_RX.search(data)  # Changed from fullmatch to search
                             if m:
-                                print(
-                                    f"[DEBUG] Found session_id via regex: {m.group(1)}"
-                                )
+                                print(f"[DEBUG] Found session_id via regex: {m.group(1)}")
                                 session_fut.set_result(m.group(1))
                                 continue
 
                             # If it looks like a simple session ID string
-                            if len(data) >= 16 and all(
-                                c in "0123456789abcdef" for c in data
-                            ):
-                                print(
-                                    f"[DEBUG] Found session_id as plain string: {data}"
-                                )
+                            if len(data) >= 16 and all(c in "0123456789abcdef" for c in data):
+                                print(f"[DEBUG] Found session_id as plain string: {data}")
                                 session_fut.set_result(data)
                                 continue
 

@@ -8,9 +8,8 @@ Test different metadata formats to find what the registry accepts.
 """
 
 import asyncio
-import inspect
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional
+from typing import List
 
 
 async def test_metadata_formats():
@@ -78,9 +77,7 @@ async def test_metadata_formats():
 
                 # Check if we can retrieve the metadata
                 try:
-                    retrieved_metadata = await registry.get_metadata(
-                        tool_name, namespace
-                    )
+                    retrieved_metadata = await registry.get_metadata(tool_name, namespace)
                     print(f"Retrieved metadata: {retrieved_metadata}")
 
                     # Check attributes

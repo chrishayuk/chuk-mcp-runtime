@@ -12,11 +12,11 @@ This script checks:
 4. Server directory existence
 """
 
-import os
-import sys
-import yaml
 import argparse
+import os
 from pathlib import Path
+
+import yaml
 
 
 def check_path_exists(path, name, is_dir=False):
@@ -146,9 +146,7 @@ def validate_config(config_path, project_root=None):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Validate proxy configuration")
     parser.add_argument("config", help="Path to the proxy configuration YAML file")
-    parser.add_argument(
-        "--root", help="Project root directory (for resolving relative paths)"
-    )
+    parser.add_argument("--root", help="Project root directory (for resolving relative paths)")
 
     args = parser.parse_args()
 

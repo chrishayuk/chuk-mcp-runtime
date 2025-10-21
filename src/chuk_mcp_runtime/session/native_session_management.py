@@ -8,15 +8,12 @@ providing cleaner, more efficient session management.
 
 from __future__ import annotations
 
-import asyncio
 import os
 import time
-import uuid
 from contextvars import ContextVar
-from typing import Any, Dict, Optional, AsyncContextManager
+from typing import Any, Dict, Optional
 
 from chuk_sessions import SessionManager
-from chuk_sessions.provider_factory import factory_for_env
 
 from chuk_mcp_runtime.server.logging_config import get_logger
 
@@ -111,16 +108,12 @@ class MCPSessionManager:
         """Validate that a session exists and hasn't expired."""
         return await self._session_manager.validate_session(session_id)
 
-    async def extend_session(
-        self, session_id: str, additional_hours: int = None
-    ) -> bool:
+    async def extend_session(self, session_id: str, additional_hours: int = None) -> bool:
         """Extend session TTL."""
         hours = additional_hours or self.default_ttl_hours
         return await self._session_manager.extend_session_ttl(session_id, hours)
 
-    async def update_session_metadata(
-        self, session_id: str, metadata: Dict[str, Any]
-    ) -> bool:
+    async def update_session_metadata(self, session_id: str, metadata: Dict[str, Any]) -> bool:
         """Update session metadata."""
         return await self._session_manager.update_session_metadata(session_id, metadata)
 
@@ -234,8 +227,8 @@ class SessionContext:
         self.session_id = session_id
         self.user_id = user_id
         self.auto_create = auto_create
-        self.previous_session = None
-        self.previous_user = None
+        self.previous_session: str | None = None
+        self.previous_user: str | None = None
 
     async def __aenter__(self) -> str:
         # Save previous context
@@ -251,9 +244,7 @@ class SessionContext:
             return self.session_id
         elif self.auto_create:
             # Auto-create session
-            session_id = await self.session_manager.auto_create_session_if_needed(
-                self.user_id
-            )
+            session_id = await self.session_manager.auto_create_session_if_needed(self.user_id)
             return session_id
         else:
             raise SessionError("No session provided and auto_create=False")
@@ -261,9 +252,7 @@ class SessionContext:
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         # Restore previous context
         if self.previous_session:
-            self.session_manager.set_current_session(
-                self.previous_session, self.previous_user
-            )
+            self.session_manager.set_current_session(self.previous_session, self.previous_user)
         else:
             self.session_manager.clear_context()
 
@@ -407,8 +396,6 @@ def validate_session_parameter(
 
     if session_manager:
         # This would need to be made async in the calling code
-        raise SessionError(
-            f"Operation '{operation}' requires session_id or session manager"
-        )
+        raise SessionError(f"Operation '{operation}' requires session_id or session manager")
 
     raise SessionError(f"Operation '{operation}' requires valid session_id")

@@ -7,21 +7,15 @@ and properly resolve them when forwarding to remote tools.
 """
 
 import pytest
-import json
-from typing import Dict, Any, List, Callable
 
 # Import our common test mocks
 from tests.common.test_mocks import (
+    AsyncMock,
     MockProxyServerManager,
     MockStreamManager,
-    AsyncMock,
-    run_async,
 )
 
 # Get direct references to modules we need
-from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY, mcp_tool
-from chuk_mcp_runtime.common.tool_naming import update_naming_maps
-
 # Import the entry module with our mocks already installed
 from tests.common.test_mocks import entry_module as entry
 
@@ -170,7 +164,7 @@ async def test_proxy_call_tool_dot_notation(proxy_config, mock_setup_mcp_stdio):
     proxy.stream_manager = mock_setup_mcp_stdio
 
     # Call tool using dot notation
-    result = await proxy.call_tool("wikipedia.search", query="python")
+    await proxy.call_tool("wikipedia.search", query="python")
 
     # Check that the call was forwarded correctly
     assert (
@@ -193,7 +187,7 @@ async def test_proxy_call_tool_underscore_notation(proxy_config, mock_setup_mcp_
     proxy.stream_manager = mock_setup_mcp_stdio
 
     # Call tool using underscore notation
-    result = await proxy.call_tool("wikipedia_search", query="python")
+    await proxy.call_tool("wikipedia_search", query="python")
 
     # Check that the call was forwarded correctly (should be converted to dot notation)
     assert any(
@@ -218,7 +212,7 @@ async def test_proxy_call_tool_full_namespace(proxy_config, mock_setup_mcp_stdio
     proxy.stream_manager = mock_setup_mcp_stdio
 
     # Call tool using full namespace
-    result = await proxy.call_tool("proxy.wikipedia.search", query="python")
+    await proxy.call_tool("proxy.wikipedia.search", query="python")
 
     # Check that the call was forwarded correctly
     assert any(

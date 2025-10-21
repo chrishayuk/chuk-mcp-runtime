@@ -7,22 +7,22 @@ with automatic input schema generation and configurable timeouts.
 """
 
 import asyncio
-import inspect
 import importlib
+import inspect
 import logging
 from functools import wraps
+from inspect import isasyncgenfunction, iscoroutinefunction
 from typing import (
     Any,
     Callable,
     Dict,
+    List,
+    Optional,
     Type,
     TypeVar,
-    get_type_hints,
-    Optional,
-    List,
     Union,
+    get_type_hints,
 )
-from inspect import iscoroutinefunction, isasyncgenfunction
 
 T = TypeVar("T")
 
@@ -137,9 +137,7 @@ def _get_type_schema(annotation: Type) -> Dict[str, Any]:
             return {"type": "number"}
 
     # Special handling for common None-able types
-    if str(annotation).startswith("typing.Union") or str(annotation).startswith(
-        "typing.Optional"
-    ):
+    if str(annotation).startswith("typing.Union") or str(annotation).startswith("typing.Optional"):
         # Try to extract the base type from string representation
         if "str" in str(annotation):
             return {"type": "string"}
@@ -167,11 +165,7 @@ async def create_input_schema(func: Callable[..., Any]) -> Dict[str, Any]:
         for name, param in sig.parameters.items():
             if name == "self" or name.startswith("__"):  # Skip internal parameters
                 continue
-            ann = (
-                param.annotation
-                if param.annotation is not inspect.Parameter.empty
-                else str
-            )
+            ann = param.annotation if param.annotation is not inspect.Parameter.empty else str
 
             # Handle Optional parameters correctly
             if param.default is not inspect.Parameter.empty:
@@ -231,12 +225,8 @@ def mcp_tool(
 
     def decorator(original_func: Callable[..., Any]):
         # 1) ensure async coroutine OR async-generator
-        if not (
-            iscoroutinefunction(original_func) or isasyncgenfunction(original_func)
-        ):
-            raise TypeError(
-                f"{original_func.__name__} must be async (coroutine or generator)"
-            )
+        if not (iscoroutinefunction(original_func) or isasyncgenfunction(original_func)):
+            raise TypeError(f"{original_func.__name__} must be async (coroutine or generator)")
 
         tool_name = name or original_func.__name__
         tool_desc = description or (original_func.__doc__ or "").strip() or tool_name

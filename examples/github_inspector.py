@@ -7,9 +7,10 @@ Simple solution that manually suppresses the noisy loggers.
 """
 
 import asyncio
-import os
 import logging
-from typing import Dict, Any
+import os
+from typing import Any, Dict
+
 from dotenv import load_dotenv
 
 # Load environment
@@ -43,11 +44,11 @@ async def inspect_github_tools():
         # Set up quiet logging BEFORE importing anything
         silence_noisy_loggers()
 
-        from chuk_mcp_runtime.proxy.manager import ProxyServerManager
         from chuk_mcp_runtime.common.mcp_tool_decorator import (
             TOOLS_REGISTRY,
             initialize_tool_registry,
         )
+        from chuk_mcp_runtime.proxy.manager import ProxyServerManager
 
         # Silence again after imports (some modules may reset logging)
         silence_noisy_loggers()
@@ -130,18 +131,16 @@ def print_clean_summary(tools: Dict[str, Any]):
         print("❌ No GitHub tools found")
         return
 
-    print(f"\n🎉 GitHub Integration Success!")
+    print("\n🎉 GitHub Integration Success!")
     print("=" * 80)
     print(f"✅ {len(tools)} GitHub tools available")
-    print(f"🔧 Tool naming: Underscore format (github_*)")
-    print(f"📦 Ready to import from TOOLS_REGISTRY")
+    print("🔧 Tool naming: Underscore format (github_*)")
+    print("📦 Ready to import from TOOLS_REGISTRY")
 
     # Print complete tools table
-    print(f"\n📋 Complete GitHub Tools Table")
+    print("\n📋 Complete GitHub Tools Table")
     print("=" * 80)
-    print(
-        f"{'Tool Name':<35} {'Req':<4} {'Opt':<4} {'Category':<12} {'Description':<25}"
-    )
+    print(f"{'Tool Name':<35} {'Req':<4} {'Opt':<4} {'Category':<12} {'Description':<25}")
     print("-" * 80)
 
     # Categorize and sort tools
@@ -170,25 +169,21 @@ def print_clean_summary(tools: Dict[str, Any]):
                 if len(tool_info["description"]) > 25:
                     desc = desc[:22] + "..."
 
-                print(
-                    f"{tool_name:<35} {req_count:<4} {opt_count:<4} {cat_display:<12} {desc:<25}"
-                )
+                print(f"{tool_name:<35} {req_count:<4} {opt_count:<4} {cat_display:<12} {desc:<25}")
 
     # Quick stats summary
-    print(f"\n📊 Summary by Category:")
+    print("\n📊 Summary by Category:")
     for category, tool_list in categorized_tools.items():
         if tool_list:
             print(f"   {category}: {len(tool_list)} tools")
 
     # Usage examples
-    print(f"\n💡 Usage Examples:")
+    print("\n💡 Usage Examples:")
     print("```python")
     print("from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY")
     print()
     print("# Search repositories")
-    print(
-        "repos = await TOOLS_REGISTRY['github_search_repositories'](query='python mcp')"
-    )
+    print("repos = await TOOLS_REGISTRY['github_search_repositories'](query='python mcp')")
     print()
     print("# Get file contents")
     print("content = await TOOLS_REGISTRY['github_get_file_contents'](")
@@ -198,7 +193,7 @@ def print_clean_summary(tools: Dict[str, Any]):
     print("issue = await TOOLS_REGISTRY['github_create_issue'](")
     print("    owner='myorg', repo='myrepo', title='Bug report', body='Description')")
     print("```")
-    print(f"\n🚀 All 26 GitHub tools are ready to use!")
+    print("\n🚀 All 26 GitHub tools are ready to use!")
 
 
 def categorize_tools(tools: Dict[str, Any]) -> Dict[str, list]:

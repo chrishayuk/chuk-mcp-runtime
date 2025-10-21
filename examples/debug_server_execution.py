@@ -5,8 +5,8 @@ Debug script to test server execution flow for streaming tools
 
 import asyncio
 import inspect
-import sys
 import os
+import sys
 import time
 
 # Add the project root to sys.path
@@ -14,9 +14,9 @@ ROOT = os.path.dirname(os.path.dirname(__file__))
 sys.path.append(ROOT)
 
 from chuk_mcp_runtime.common.mcp_tool_decorator import (
-    mcp_tool,
     TOOLS_REGISTRY,
     initialize_tool_registry,
+    mcp_tool,
 )
 
 
@@ -77,15 +77,13 @@ async def simulate_server_execution():
                         # Check timeout on each chunk
                         if (time.time() - start) >= timeout:
                             await agen.aclose()
-                            raise asyncio.TimeoutError(
-                                f"Streaming tool '{tool_name}' timed out"
-                            )
+                            raise asyncio.TimeoutError(f"Streaming tool '{tool_name}' timed out")
                         yield chunk
                 except Exception as e:
                     print(f"Error in streaming wrapper: {e}")
                     try:
                         await agen.aclose()
-                    except:
+                    except Exception:
                         pass
                     raise e
 
@@ -120,9 +118,7 @@ async def simulate_server_execution():
                             print(f"Created TextContent from other: {content}")
                             yield content
 
-                    print(
-                        f"Content streaming completed, processed {chunk_count} chunks"
-                    )
+                    print(f"Content streaming completed, processed {chunk_count} chunks")
                 except Exception as e:
                     print(f"Error in content streaming: {e}")
                     import traceback
@@ -132,9 +128,7 @@ async def simulate_server_execution():
 
             content_generator = _to_content()
             print(f"Content generator type: {type(content_generator)}")
-            print(
-                f"Content generator is async gen: {inspect.isasyncgen(content_generator)}"
-            )
+            print(f"Content generator is async gen: {inspect.isasyncgen(content_generator)}")
 
             # Try to consume it
             print("\n=== Consuming content generator ===")

@@ -5,17 +5,17 @@ Debug script to test the streaming tool in isolation
 
 import asyncio
 import inspect
-import sys
 import os
+import sys
 
 # Add the project root to sys.path
 ROOT = os.path.dirname(os.path.dirname(__file__))
 sys.path.append(ROOT)
 
 from chuk_mcp_runtime.common.mcp_tool_decorator import (
-    mcp_tool,
     TOOLS_REGISTRY,
     initialize_tool_registry,
+    mcp_tool,
 )
 
 

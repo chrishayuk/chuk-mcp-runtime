@@ -8,8 +8,6 @@ to ensure consistent mocking behavior and avoid circular import issues.
 
 import asyncio
 import json
-from typing import Dict, Any, List, Optional, Callable
-from unittest.mock import MagicMock
 
 
 # --- Async testing utilities ---

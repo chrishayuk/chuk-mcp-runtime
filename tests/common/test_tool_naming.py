@@ -6,14 +6,14 @@ Tests the functionality of the tool_naming module to ensure
 proper resolution between dot and underscore naming conventions.
 """
 
-import pytest
-from typing import Dict, Any
+from typing import Any, Dict
 
-from chuk_mcp_runtime.common.mcp_tool_decorator import mcp_tool, TOOLS_REGISTRY
+import pytest
+from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY, mcp_tool
 from chuk_mcp_runtime.common.tool_naming import (
+    ToolNamingResolver,
     resolve_tool_name,
     update_naming_maps,
-    ToolNamingResolver,
 )
 
 
@@ -85,9 +85,7 @@ def test_resolver_initialization(setup_registry):
 def test_basic_name_resolution(setup_registry):
     """Test basic name resolution between dot and underscore notation."""
     # Dot to underscore
-    assert (
-        resolve_tool_name("wiki.search") == "wiki.search"
-    )  # Original exists, so keep it
+    assert resolve_tool_name("wiki.search") == "wiki.search"  # Original exists, so keep it
 
     # Underscore to dot (when original doesn't exist)
     TOOLS_REGISTRY.pop("wiki.search")
@@ -120,10 +118,7 @@ def test_proxy_namespace_resolution(setup_registry):
 def test_long_namespace_resolution(setup_registry):
     """Test resolution with long namespaces."""
     # Original long namespace
-    assert (
-        resolve_tool_name("some.very.long.namespace.tool")
-        == "some.very.long.namespace.tool"
-    )
+    assert resolve_tool_name("some.very.long.namespace.tool") == "some.very.long.namespace.tool"
 
     # Shortened to last two components
     assert resolve_tool_name("namespace.tool") == "some.very.long.namespace.tool"
@@ -147,9 +142,7 @@ def test_nonexistent_tool_resolution(setup_registry):
     assert resolve_tool_name("fake.search") == "fake.search"
 
     # Check that there's no false positives
-    assert (
-        resolve_tool_name("bingsearch") == "bingsearch"
-    )  # No match for malformed name
+    assert resolve_tool_name("bingsearch") == "bingsearch"  # No match for malformed name
 
 
 def test_dynamic_registry_updates(setup_registry):

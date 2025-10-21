@@ -19,12 +19,10 @@ To run:
 """
 
 import asyncio
-import os
-import sys
 import json
 import logging
-from pathlib import Path
-from typing import Dict, Any
+import os
+import sys
 import tempfile
 
 # Configure logging for debugging
@@ -38,9 +36,9 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 # Import the necessary modules
-from chuk_mcp_runtime.server.config_loader import load_config, find_project_root
-from chuk_mcp_runtime.proxy.manager import ProxyServerManager
 from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY, mcp_tool
+from chuk_mcp_runtime.proxy.manager import ProxyServerManager
+from chuk_mcp_runtime.server.config_loader import find_project_root, load_config
 
 # Try to import OpenAI compatibility and ToolRegistryProvider
 try:
@@ -52,9 +50,7 @@ except ImportError as e:
     OpenAIToolsAdapter = None
 
 # Path to the example config template
-CONFIG_TEMPLATE = os.path.join(
-    os.path.dirname(__file__), "openai_compatible_config.yaml"
-)
+CONFIG_TEMPLATE = os.path.join(os.path.dirname(__file__), "openai_compatible_config.yaml")
 
 
 # Create a config file with correct paths
@@ -114,9 +110,7 @@ def register_demo_tools() -> ToolTracker:
     # TOOLS_REGISTRY.clear()
 
     # Register the dot notation tool
-    @mcp_tool(
-        name="proxy.echo.echo", description="Echo back a message (dot notation version)"
-    )
+    @mcp_tool(name="proxy.echo.echo", description="Echo back a message (dot notation version)")
     async def echo_tool(message: str = "Hello"):
         """Echo back the provided message."""
         return {"message": f"Echo: {message}"}
@@ -157,9 +151,7 @@ async def main() -> None:
         config.setdefault("proxy", {})["keep_root_aliases"] = True
 
         # Print MCP servers from config
-        logger.info(
-            f"MCP servers in config: {list(config.get('mcp_servers', {}).keys())}"
-        )
+        logger.info(f"MCP servers in config: {list(config.get('mcp_servers', {}).keys())}")
 
         # Check if the echo server main.py exists
         echo_server_main = os.path.join(ROOT, "examples", "echo_server", "main.py")
@@ -173,9 +165,7 @@ async def main() -> None:
             os.chmod(echo_server_main, 0o755)  # Set executable permissions
             logger.info(f"Made {echo_server_main} executable")
         except Exception as e:
-            logger.warning(
-                f"Could not set executable permissions on {echo_server_main}: {e}"
-            )
+            logger.warning(f"Could not set executable permissions on {echo_server_main}: {e}")
 
         # 1. Start the proxy manager
         print("\n🚀 Starting proxy servers with OpenAI compatibility...\n")
@@ -197,9 +187,7 @@ async def main() -> None:
         try:
             # Print running servers
             logger.info(f"Running servers: {list(proxy.running_servers.keys())}")
-            print(
-                f"Running servers: {', '.join(proxy.running_servers.keys()) or 'None'}"
-            )
+            print(f"Running servers: {', '.join(proxy.running_servers.keys()) or 'None'}")
 
             # 2. Get all tools from the proxy manager
             all_tools = proxy.get_all_tools()
@@ -212,9 +200,7 @@ async def main() -> None:
             print(f"Registered {len(tool_tracker.all_tools)} demo tools")
 
             # 3. Display TOOLS_REGISTRY contents after manual registration
-            logger.info(
-                f"TOOLS_REGISTRY after registration: {list(TOOLS_REGISTRY.keys())}"
-            )
+            logger.info(f"TOOLS_REGISTRY after registration: {list(TOOLS_REGISTRY.keys())}")
             print(f"TOOLS_REGISTRY has {len(TOOLS_REGISTRY)} registered tools")
 
             # 4. Try to get ToolRegistryProvider if available
@@ -248,7 +234,7 @@ async def main() -> None:
                 # Test the dot notation tool
                 dot_tool = TOOLS_REGISTRY.get("proxy.echo.echo")
                 if dot_tool:
-                    print(f"  • Testing dot notation tool: proxy.echo.echo")
+                    print("  • Testing dot notation tool: proxy.echo.echo")
                     result = dot_tool(message="Hello, dot notation!")
                     if hasattr(result, "__await__"):
                         result = await result
@@ -257,7 +243,7 @@ async def main() -> None:
                 # Test the underscore notation tool
                 underscore_tool = TOOLS_REGISTRY.get("proxy_echo_echo")
                 if underscore_tool:
-                    print(f"  • Testing underscore notation tool: proxy_echo_echo")
+                    print("  • Testing underscore notation tool: proxy_echo_echo")
                     result = underscore_tool(message="Hello, underscore notation!")
                     if hasattr(result, "__await__"):
                         result = await result
@@ -273,16 +259,12 @@ async def main() -> None:
                     adapter = OpenAIToolsAdapter()
                     openai_tools = adapter.get_openai_tools_definition()
 
-                    print(
-                        f"\n📑 OpenAI-compatible tool definitions ({len(openai_tools)}):"
-                    )
+                    print(f"\n📑 OpenAI-compatible tool definitions ({len(openai_tools)}):")
                     for i, tool in enumerate(openai_tools):
                         print(f"  Tool {i+1}: {tool['function']['name']}")
                         print(f"  Description: {tool['function']['description']}")
                 except Exception as e:
-                    logger.error(
-                        f"Error generating OpenAI tool definitions: {e}", exc_info=True
-                    )
+                    logger.error(f"Error generating OpenAI tool definitions: {e}", exc_info=True)
                     print(f"⚠️ Error generating OpenAI tool definitions: {e}")
 
             print("\n✨ Demo complete!")

@@ -27,16 +27,16 @@ import asyncio
 import inspect
 import os
 import sys
-from typing import Dict, List, Tuple, Any
+from typing import Any, Dict, List, Tuple
 
 # ── project paths ----------------------------------------------------
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 # ── internal imports -------------------------------------------------
-from chuk_mcp_runtime.server.config_loader import load_config, find_project_root
-from chuk_mcp_runtime.proxy.manager import ProxyServerManager
 from chuk_mcp_runtime.common.openai_compatibility import initialize_openai_compatibility
+from chuk_mcp_runtime.proxy.manager import ProxyServerManager
+from chuk_mcp_runtime.server.config_loader import find_project_root, load_config
 
 try:
     from chuk_tool_processor.registry import ToolRegistryProvider
@@ -99,7 +99,6 @@ async def safe_execute_tool(tool: Any, **kwargs) -> Any:
 
             print(f"Direct execution via stream manager: {server_name}.{tool_name}")
             # This avoids the wrapper that's causing recursion
-            from chuk_mcp_runtime.proxy.manager import ProxyServerManager
 
             # Get the global proxy instance from our module
             proxy = globals().get("proxy")
@@ -159,9 +158,7 @@ async def main() -> None:
         try:
             print("Calling echo_wrapper with 'Hello from wrapper call!'")
             # Use our safe executor to avoid recursion
-            result = await safe_execute_tool(
-                echo_wrapper, message="Hello from wrapper call!"
-            )
+            result = await safe_execute_tool(echo_wrapper, message="Hello from wrapper call!")
             print("Result ->", result)
         except Exception as e:
             print(f"Error calling echo_wrapper: {e}")

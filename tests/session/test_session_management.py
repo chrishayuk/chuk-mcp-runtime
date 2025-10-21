@@ -3,16 +3,14 @@
 Fixed session management tests with proper concurrent session isolation.
 """
 
-import pytest
 import asyncio
+
+import pytest
+
 from tests.conftest import (
     MockMCPSessionManager,
     MockSessionContext,
     mock_session_ctx,
-    mock_user_ctx,
-    mock_require_session,
-    MockSessionError,
-    run_async,
 )
 
 
@@ -115,9 +113,7 @@ class TestIntegrationScenarios:
 
         # Verify sessions are different
         session_ids = [results[f"worker{i}"]["session_id"] for i in range(1, 4)]
-        assert (
-            len(set(session_ids)) == 3
-        ), f"Sessions should be different but got: {session_ids}"
+        assert len(set(session_ids)) == 3, f"Sessions should be different but got: {session_ids}"
 
 
 if __name__ == "__main__":

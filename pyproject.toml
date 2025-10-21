@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chuk-mcp-runtime"
-version = "0.6.5"
+version = "0.7"
 description = "Generic CHUK MCP Runtime for MCP servers"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -26,6 +26,7 @@ dependencies = [
 dev = [
   "pytest>=8.3.5",
   "pytest-asyncio>=0.26.0",
+  "pytest-cov>=6.0.0",
   "ruff>=0.4.6",
 ]
 
@@ -61,7 +62,7 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = [
     "--verbose",
-    "--tb=short", 
+    "--tb=short",
     "--strict-markers",
     "--strict-config",
     "--durations=10",
@@ -70,7 +71,7 @@ addopts = [
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "integration: marks tests as integration tests",
-    "unit: marks tests as unit tests", 
+    "unit: marks tests as unit tests",
     "security: marks tests as security-focused tests",
     "performance: marks tests as performance tests"
 ]
@@ -80,5 +81,107 @@ filterwarnings = [
     "ignore::pytest.PytestUnknownMarkWarning"
 ]
 
+[tool.coverage.run]
+omit = [
+    "*/main.py",
+    "*/proxy_cli.py",
+    "*/entry.py",
+    "*/grid/*",
+    "*/artifacts/__init__.py",
+    "*/proxy/manager.py",
+    "*/session/native_session_management.py",
+    "*/session/session_management.py",
+    "*/tools/artifacts_tools.py",
+    "*/tools/session_tools.py",
+    "*/server/event_store.py",
+    "*/server/server.py",
+    "*/server/server_registry.py",
+    "*/tools/__init__.py",
+    "*/common/mcp_tool_decorator.py",
+    "*/common/openai_compatibility.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "if typing.TYPE_CHECKING:",
+    "@abstractmethod",
+]
+
 [tool.setuptools]
-license-files = [] 
+license-files = []
+
+[tool.mypy]
+# Mypy configuration
+python_version = "3.11"
+warn_return_any = false
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+no_implicit_optional = false
+check_untyped_defs = false
+
+# Per-module options for external libraries without stubs
+[[tool.mypy.overrides]]
+module = [
+    "mcp.*",
+    "chuk_artifacts.*",
+    "chuk_tool_processor.*",
+]
+ignore_missing_imports = true
+
+# Allow dynamic attributes in decorator modules
+[[tool.mypy.overrides]]
+module = "chuk_mcp_runtime.common.mcp_tool_decorator"
+disable_error_code = ["attr-defined", "no-redef"]
+
+# Allow type issues in tool modules (they use dict unpacking from external sources)
+[[tool.mypy.overrides]]
+module = ["chuk_mcp_runtime.tools.*"]
+disable_error_code = ["attr-defined", "no-redef"]
+
+# Server has conditional ASGI signatures
+[[tool.mypy.overrides]]
+module = "chuk_mcp_runtime.server.server"
+disable_error_code = ["misc", "arg-type"]
+
+# Config loader - yaml stubs are installed but mypy complains
+[[tool.mypy.overrides]]
+module = "chuk_mcp_runtime.server.config_loader"
+disable_error_code = ["import-untyped"]
+
+# Grid hub_sandbox imports from session module (provider_factory may not exist)
+[[tool.mypy.overrides]]
+module = "chuk_mcp_runtime.grid.hub_sandbox"
+disable_error_code = ["attr-defined"]
+
+[tool.ruff]
+# Ruff configuration
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+# Enable specific rule sets
+select = ["E", "F", "I", "N", "W"]
+
+# Ignore specific rules
+ignore = []
+
+[tool.ruff.lint.per-file-ignores]
+# Examples often need to modify sys.path before imports, have long lines, and use uppercase vars
+"examples/**/*.py" = ["E402", "E501", "N806", "W291"]
+# Entry points need to set up logging before imports
+"src/chuk_mcp_runtime/entry.py" = ["E402"]
+"src/chuk_mcp_runtime/proxy_cli.py" = ["E402"]
+# Test files may have imports after fixtures and long lines
+"tests/**/*.py" = ["E402", "E501", "F811", "N806"]
+# Tool decorators use MCP-style naming conventions
+"src/chuk_mcp_runtime/common/mcp_tool_decorator.py" = ["N803", "N806"]
+# Tool files use uppercase constants for tool lists
+"src/chuk_mcp_runtime/tools/*.py" = ["E501", "N802", "N806"]
+"src/chuk_mcp_runtime/session/native_session_management.py" = ["N806"] 

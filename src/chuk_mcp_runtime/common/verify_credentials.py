@@ -17,7 +17,6 @@ from typing import List
 import jwt
 from jwt import PyJWTError
 from jwt.exceptions import ExpiredSignatureError
-
 from starlette.exceptions import HTTPException
 from starlette.status import HTTP_401_UNAUTHORIZED
 

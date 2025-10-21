@@ -10,7 +10,6 @@ import os
 import re
 import socket
 import sys
-import time
 
 import httpx
 
@@ -18,8 +17,8 @@ import httpx
 ROOT = os.path.dirname(os.path.dirname(__file__))
 sys.path.append(ROOT)
 
-from chuk_mcp_runtime.server.server import MCPServer
 from chuk_mcp_runtime.common.mcp_tool_decorator import mcp_tool
+from chuk_mcp_runtime.server.server import MCPServer
 
 
 @mcp_tool(name="test_tool", description="Test tool")
@@ -156,7 +155,7 @@ async def test_tool_call_simple(
             try:
                 async with client.stream(
                     "GET",
-                    f"http://127.0.0.1:8117/sse",
+                    "http://127.0.0.1:8117/sse",
                     headers={"accept": "text/event-stream"},
                     timeout=5.0,
                 ) as resp:
@@ -181,9 +180,7 @@ async def test_tool_call_simple(
                                     else:
                                         content = result.get("content", [])
                                         if content:
-                                            result_text = content[0].get(
-                                                "text", "No text"
-                                            )
+                                            result_text = content[0].get("text", "No text")
                                             print(f"   ✅ Result: {result_text}")
                                         else:
                                             print(f"   ✅ Result: {result}")

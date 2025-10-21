@@ -16,9 +16,6 @@ via `@mcp_tool` and—if present—also into `ToolRegistryProvider`.
 
 from __future__ import annotations
 
-import inspect
-import json
-import logging
 from typing import Any, Callable, Optional
 
 from chuk_mcp_runtime.common.mcp_tool_decorator import mcp_tool
@@ -35,11 +32,7 @@ logger = get_logger("chuk_mcp_runtime.proxy.tool_wrapper")
 # ───────────────────────── helpers ──────────────────────────
 def _meta_get(meta: Any, key: str, default: Any) -> Any:
     """Fetch *key* from dict-or-object metadata safely."""
-    return (
-        meta.get(key, default)
-        if isinstance(meta, dict)
-        else getattr(meta, key, default)
-    )
+    return meta.get(key, default) if isinstance(meta, dict) else getattr(meta, key, default)
 
 
 async def _tp_register(

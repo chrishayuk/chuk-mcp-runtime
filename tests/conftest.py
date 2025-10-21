@@ -5,8 +5,8 @@ Enhanced conftest.py with properly working mocks for all components.
 
 # Mock imports need to happen before ANY imports
 import sys
-from unittest.mock import MagicMock, AsyncMock
 from contextvars import ContextVar
+from unittest.mock import MagicMock
 
 # Create mocks for all the modules we need before they get imported
 mock_modules = {
@@ -54,9 +54,7 @@ sys.modules["chuk_artifacts"] = mock_artifacts_mod
 class MockMCPSessionManager:
     """Enhanced mock native session manager with full context variable support."""
 
-    def __init__(
-        self, sandbox_id=None, default_ttl_hours=24, auto_extend_threshold=0.1
-    ):
+    def __init__(self, sandbox_id=None, default_ttl_hours=24, auto_extend_threshold=0.1):
         self.sandbox_id = sandbox_id or "test-sandbox"
         self.default_ttl_hours = default_ttl_hours
         self.auto_extend_threshold = auto_extend_threshold
@@ -132,9 +130,7 @@ class MockMCPSessionManager:
         current = self.get_current_session()
         if current and await self.validate_session(current):
             return current
-        session_id = await self.create_session(
-            user_id=user_id, metadata={"auto_created": True}
-        )
+        session_id = await self.create_session(user_id=user_id, metadata={"auto_created": True})
         self.set_current_session(session_id, user_id)
         return session_id
 
@@ -154,9 +150,7 @@ class MockMCPSessionManager:
 
         current_time = time.time()
         expired = [
-            sid
-            for sid, info in self._sessions.items()
-            if info.get("expires_at", 0) < current_time
+            sid for sid, info in self._sessions.items() if info.get("expires_at", 0) < current_time
         ]
         for sid in expired:
             del self._sessions[sid]
@@ -166,9 +160,7 @@ class MockMCPSessionManager:
 class MockSessionContext:
     """Enhanced mock session context manager with proper context variable handling."""
 
-    def __init__(
-        self, session_manager, session_id=None, user_id=None, auto_create=True
-    ):
+    def __init__(self, session_manager, session_id=None, user_id=None, auto_create=True):
         self.session_manager = session_manager
         self.session_id = session_id
         self.user_id = user_id
@@ -187,9 +179,7 @@ class MockSessionContext:
             self.session_manager.set_current_session(self.session_id, self.user_id)
             return self.session_id
         elif self.auto_create:
-            session_id = await self.session_manager.auto_create_session_if_needed(
-                self.user_id
-            )
+            session_id = await self.session_manager.auto_create_session_if_needed(self.user_id)
             return session_id
         else:
             raise ValueError("No session provided and auto_create=False")
@@ -306,9 +296,7 @@ def mock_validate_session_parameter(session_id=None, operation="unknown"):
     if current:
         return current
 
-    raise MockSessionError(
-        f"Operation '{operation}' requires valid session_id or session context"
-    )
+    raise MockSessionError(f"Operation '{operation}' requires valid session_id or session context")
 
 
 # Create session management module mock with all components
@@ -317,9 +305,7 @@ session_mgmt_mod.MCPSessionManager = MockMCPSessionManager
 session_mgmt_mod.SessionContext = MockSessionContext
 session_mgmt_mod.create_mcp_session_manager = lambda config: MockMCPSessionManager(
     sandbox_id=config.get("sessions", {}).get("sandbox_id") if config else None,
-    default_ttl_hours=config.get("sessions", {}).get("default_ttl_hours", 24)
-    if config
-    else 24,
+    default_ttl_hours=config.get("sessions", {}).get("default_ttl_hours", 24) if config else 24,
 )
 
 # Add context variables and helper functions
@@ -384,9 +370,9 @@ proxy_manager_mod.ProxyServerManager = MockProxyServerManager
 sys.modules["chuk_mcp_runtime.proxy.manager"] = proxy_manager_mod
 
 # Import necessary modules for testing
-import pytest
 import asyncio
-import os
+
+import pytest
 
 
 # Other mock classes for server components
@@ -427,9 +413,7 @@ class DummyMCPServer:
         return self.session_manager
 
     async def create_user_session(self, user_id, metadata=None):
-        return await self.session_manager.create_session(
-            user_id=user_id, metadata=metadata
-        )
+        return await self.session_manager.create_session(user_id=user_id, metadata=metadata)
 
 
 # Helper function to safely run async code in tests
@@ -468,9 +452,7 @@ def ensure_mocked_modules():
     yield
     # Clean up mocks after tests
     for module in list(sys.modules.keys()):
-        if module.startswith(
-            ("chuk_tool_processor", "chuk_sessions", "chuk_artifacts")
-        ):
+        if module.startswith(("chuk_tool_processor", "chuk_sessions", "chuk_artifacts")):
             del sys.modules[module]
 
 
@@ -500,9 +482,7 @@ def mock_session_manager():
 def mock_session_context():
     """Provide a mock session context factory."""
 
-    def _create_context(
-        session_manager, session_id=None, user_id=None, auto_create=True
-    ):
+    def _create_context(session_manager, session_id=None, user_id=None, auto_create=True):
         return MockSessionContext(session_manager, session_id, user_id, auto_create)
 
     return _create_context

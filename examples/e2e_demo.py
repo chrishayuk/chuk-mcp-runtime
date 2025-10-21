@@ -8,11 +8,9 @@ Perfect for clean validation that your CHUK MCP Runtime is solid.
 """
 
 import asyncio
-import json
-import time
-import os
 import logging
-from typing import Dict, Any, List
+import time
+from typing import Any, Dict
 
 # Configure quieter logging - only show our demo results
 logging.basicConfig(
@@ -78,9 +76,8 @@ class QuietChukRuntimeDemo:
     async def register_demo_tools(self):
         """Register demo tools quietly."""
         from chuk_mcp_runtime.common.mcp_tool_decorator import (
-            mcp_tool,
-            TOOLS_REGISTRY,
             initialize_tool_registry,
+            mcp_tool,
         )
 
         @mcp_tool(name="demo_echo", description="Echo back the input with timestamp")
@@ -91,9 +88,7 @@ class QuietChukRuntimeDemo:
                 "session": self.session_id,
             }
 
-        @mcp_tool(
-            name="demo_search", description="Mock search tool with optional parameters"
-        )
+        @mcp_tool(name="demo_search", description="Mock search tool with optional parameters")
         async def demo_search(
             query: str, max_results: int = 5, snippet_words: int = 100
         ) -> Dict[str, Any]:
@@ -128,9 +123,7 @@ class QuietChukRuntimeDemo:
                 yield f"Stream chunk {i+1}/{count}"
                 await asyncio.sleep(delay)
 
-        @mcp_tool(
-            name="demo_slow", description="Slow tool for timeout testing", timeout=2.0
-        )
+        @mcp_tool(name="demo_slow", description="Slow tool for timeout testing", timeout=2.0)
         async def demo_slow(duration: float = 1.0) -> str:
             await asyncio.sleep(duration)
             return f"Completed after {duration} seconds"
@@ -161,24 +154,16 @@ class QuietChukRuntimeDemo:
             tool_names = list(TOOLS_REGISTRY.keys())
             demo_tools = [name for name in tool_names if name.startswith("demo_")]
 
-            assert (
-                len(demo_tools) >= 5
-            ), f"Expected at least 5 demo tools, got {len(demo_tools)}"
+            assert len(demo_tools) >= 5, f"Expected at least 5 demo tools, got {len(demo_tools)}"
 
             for tool_name in demo_tools:
                 func = TOOLS_REGISTRY[tool_name]
-                assert hasattr(
-                    func, "_mcp_tool"
-                ), f"Tool {tool_name} missing _mcp_tool metadata"
+                assert hasattr(func, "_mcp_tool"), f"Tool {tool_name} missing _mcp_tool metadata"
 
                 tool_obj = func._mcp_tool
                 assert hasattr(tool_obj, "name"), f"Tool {tool_name} missing name"
-                assert hasattr(
-                    tool_obj, "description"
-                ), f"Tool {tool_name} missing description"
-                assert hasattr(
-                    tool_obj, "inputSchema"
-                ), f"Tool {tool_name} missing inputSchema"
+                assert hasattr(tool_obj, "description"), f"Tool {tool_name} missing description"
+                assert hasattr(tool_obj, "inputSchema"), f"Tool {tool_name} missing inputSchema"
 
             self.test_results.append(
                 ("Tool Discovery", True, f"Found {len(demo_tools)} demo tools")
@@ -198,18 +183,14 @@ class QuietChukRuntimeDemo:
             assert "timestamp" in result
 
             # Test search with parameters
-            result = await execute_tool(
-                "demo_search", query="test query", max_results=3
-            )
+            result = await execute_tool("demo_search", query="test query", max_results=3)
             assert result["query"] == "test query"
             assert result["max_results"] == 3
             assert len(result["results"]) == 3
 
             # Test complex data
             test_data = {"items": [1, 2, 3], "metadata": {"type": "test"}}
-            result = await execute_tool(
-                "demo_analyze", data=test_data, options={"verbose": True}
-            )
+            result = await execute_tool("demo_analyze", data=test_data, options={"verbose": True})
             assert "analysis" in result
             assert result["options_used"]["verbose"] is True
 
@@ -236,9 +217,7 @@ class QuietChukRuntimeDemo:
             assert chunks[0] == "Stream chunk 1/3"
             assert chunks[2] == "Stream chunk 3/3"
 
-            self.test_results.append(
-                ("Streaming Tools", True, f"Collected {len(chunks)} chunks")
-            )
+            self.test_results.append(("Streaming Tools", True, f"Collected {len(chunks)} chunks"))
 
         except Exception as e:
             self.test_results.append(("Streaming Tools", False, str(e)))
@@ -246,8 +225,8 @@ class QuietChukRuntimeDemo:
     async def test_json_concatenation_fix(self):
         """Test JSON concatenation fix."""
         try:
-            from chuk_mcp_runtime.server.server import parse_tool_arguments
             from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY
+            from chuk_mcp_runtime.server.server import parse_tool_arguments
 
             # Test normal JSON
             normal_json = '{"param1": "test", "param2": 42}'
@@ -297,9 +276,7 @@ class QuietChukRuntimeDemo:
             except Exception as e:
                 assert "timeout" in str(e).lower() or "timed out" in str(e).lower()
 
-            self.test_results.append(
-                ("Timeout Handling", True, "Timeouts work correctly")
-            )
+            self.test_results.append(("Timeout Handling", True, "Timeouts work correctly"))
 
         except Exception as e:
             self.test_results.append(("Timeout Handling", False, str(e)))
@@ -327,18 +304,13 @@ class QuietChukRuntimeDemo:
                     await execute_tool("nonexistent_tool", param="value")
                     assert False, "Should have failed with unknown tool"
                 except Exception as e:
-                    assert (
-                        "not found" in str(e).lower()
-                        or "not registered" in str(e).lower()
-                    )
+                    assert "not found" in str(e).lower() or "not registered" in str(e).lower()
 
             finally:
                 # Restore original log level
                 root_logger.setLevel(original_level)
 
-            self.test_results.append(
-                ("Error Handling", True, "Proper error handling and messages")
-            )
+            self.test_results.append(("Error Handling", True, "Proper error handling and messages"))
 
         except Exception as e:
             self.test_results.append(("Error Handling", False, str(e)))
@@ -347,9 +319,9 @@ class QuietChukRuntimeDemo:
         """Test session management."""
         try:
             from chuk_mcp_runtime.session.session_management import (
+                clear_session_context,
                 get_session_context,
                 set_session_context,
-                clear_session_context,
             )
 
             original_session = get_session_context()
@@ -378,9 +350,7 @@ class QuietChukRuntimeDemo:
             demo_tools = [name for name in tool_names if name.startswith("demo_")]
             assert len(demo_tools) >= 5
 
-            result = await self.server.tools_registry["demo_echo"](
-                message="MCP Protocol Test"
-            )
+            result = await self.server.tools_registry["demo_echo"](message="MCP Protocol Test")
             assert result["echo"] == "MCP Protocol Test"
 
             self.test_results.append(
@@ -405,14 +375,10 @@ class QuietChukRuntimeDemo:
             elapsed = time.time() - start_time
 
             assert len(results) == 10
-            assert all(
-                result["echo"].startswith("Performance test") for result in results
-            )
+            assert all(result["echo"].startswith("Performance test") for result in results)
 
             rps = len(results) / elapsed
-            self.test_results.append(
-                ("Performance", True, f"{rps:.1f} requests/second")
-            )
+            self.test_results.append(("Performance", True, f"{rps:.1f} requests/second"))
 
         except Exception as e:
             self.test_results.append(("Performance", False, str(e)))
@@ -428,7 +394,7 @@ class QuietChukRuntimeDemo:
 
         print(f"\n📊 OVERALL: {passed}/{total} tests passed ({passed/total*100:.1f}%)")
 
-        print(f"\n📋 DETAILED RESULTS:")
+        print("\n📋 DETAILED RESULTS:")
         print("-" * 80)
 
         for test_name, success, details in self.test_results:
@@ -449,12 +415,8 @@ class QuietChukRuntimeDemo:
             print("   • Session management")
             print("   • MCP protocol compatibility")
             print("   • High-performance execution")
-            print(
-                "\n💡 CONCLUSION: The MCP CLI client JSON parsing issue is NOT your runtime!"
-            )
-            print(
-                "   Your server works perfectly - the problem is upstream in the client."
-            )
+            print("\n💡 CONCLUSION: The MCP CLI client JSON parsing issue is NOT your runtime!")
+            print("   Your server works perfectly - the problem is upstream in the client.")
         else:
             print(f"\n⚠️  {total-passed} tests failed. Check the details above.")
 

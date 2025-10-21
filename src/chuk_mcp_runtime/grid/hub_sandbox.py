@@ -16,14 +16,15 @@ import os
 import time
 import urllib.parse
 import uuid
-from typing import AsyncContextManager, Callable, Dict, Optional
+from typing import AsyncContextManager, Callable, Optional
 
 import aiohttp
-
-from chuk_mcp_runtime.common.mcp_tool_decorator import mcp_tool, TOOLS_REGISTRY
+from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY, mcp_tool
 from chuk_mcp_runtime.proxy.tool_wrapper import create_proxy_tool
 from chuk_mcp_runtime.server.logging_config import get_logger
-from chuk_mcp_runtime.session import provider_factory  # ← reuse existing providers
+from chuk_mcp_runtime.session import (
+    provider_factory,  # type: ignore[attr-defined]  # ← reuse existing providers
+)
 
 logger = get_logger("hub")
 
@@ -79,10 +80,13 @@ async def _dial(endpoint: str, transport: str):
     if transport == "stdio":
         if endpoint.startswith("tcp://"):
             ep = urllib.parse.urlparse(endpoint)
-            host, port = ep.hostname, ep.port
+            host = ep.hostname
+            port_int: int = ep.port if ep.port else 0
         else:
-            host, port = endpoint.split(":", 1)
-        reader, writer = await asyncio.open_connection(host, int(port))
+            host_str, port_str = endpoint.split(":", 1)
+            host = host_str
+            port_int = int(port_str)
+        reader, writer = await asyncio.open_connection(host, port_int)
         return reader, writer
 
     if transport == "ws":
@@ -110,9 +114,7 @@ _HUB_ID = os.getenv("HUB_ID", os.getenv("POD_NAME", "hub"))
     name="hub.register_sandbox",
     description="Register a sandbox; expose its tools via proxy wrappers.",
 )
-async def register_sandbox(
-    *, sandbox_id: str, endpoint: str, transport: str = "sse"
-) -> str:  # noqa: D401
+async def register_sandbox(*, sandbox_id: str, endpoint: str, transport: str = "sse") -> str:  # noqa: D401
     """Hub entry-point called by sandboxes on boot."""
     # 1) Dial *once* just to fetch the tool catalogue
     reader, writer = await _dial(endpoint, transport)
@@ -222,9 +224,7 @@ async def register_with_hub() -> None:
 
     async def _send_register():
         async with aiohttp.ClientSession(headers=headers) as sess:
-            async with sess.post(
-                f"{hub_addr}/call/hub.register_sandbox", json=payload
-            ) as resp:
+            async with sess.post(f"{hub_addr}/call/hub.register_sandbox", json=payload) as resp:
                 txt = await resp.text()
                 if resp.status == 200:
                     logger.info("[sandbox %s] hub: %s", sbx_id, txt)

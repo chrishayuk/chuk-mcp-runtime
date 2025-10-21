@@ -1,19 +1,31 @@
-.PHONY: clean clean-pyc clean-build clean-test clean-all test run build publish help install dev-install
+.PHONY: clean clean-pyc clean-build clean-test clean-all test test-cov coverage coverage-html run build publish help install dev-install
+
+# Colors for output
+BLUE := \033[1;34m
+GREEN := \033[1;32m
+YELLOW := \033[1;33m
+NC := \033[0m  # No Color
 
 # Default target
 help:
 	@echo "Available targets:"
-	@echo "  clean       - Remove Python bytecode and basic artifacts"
-	@echo "  clean-all   - Deep clean everything (pyc, build, test, cache)"
-	@echo "  clean-pyc   - Remove Python bytecode files"
-	@echo "  clean-build - Remove build artifacts"
-	@echo "  clean-test  - Remove test artifacts"
-	@echo "  install     - Install package in current environment"
-	@echo "  dev-install - Install package in development mode"
-	@echo "  test        - Run tests"
-	@echo "  run         - Run the server"
-	@echo "  build       - Build the project"
-	@echo "  publish     - Build and publish to PyPI"
+	@echo "  clean         - Remove Python bytecode and basic artifacts"
+	@echo "  clean-all     - Deep clean everything (pyc, build, test, cache)"
+	@echo "  clean-pyc     - Remove Python bytecode files"
+	@echo "  clean-build   - Remove build artifacts"
+	@echo "  clean-test    - Remove test artifacts"
+	@echo "  install       - Install package in current environment"
+	@echo "  dev-install   - Install package in development mode"
+	@echo "  test          - Run tests"
+	@echo "  coverage      - Generate test coverage report"
+	@echo "  coverage-html - Open coverage HTML report"
+	@echo "  run           - Run the server"
+	@echo "  build         - Build the project"
+	@echo "  publish       - Build and publish to PyPI"
+	@echo "  lint          - Check code quality"
+	@echo "  format        - Fix code formatting"
+	@echo "  typecheck     - Run type checking"
+	@echo "  check         - Run all checks (lint, typecheck, test)"
 
 # Basic clean - Python bytecode and common artifacts
 clean: clean-pyc clean-build
@@ -70,7 +82,7 @@ dev-install:
 
 # Run tests
 test:
-	@echo "Running tests..."
+	@echo "$(BLUE)Running tests...$(NC)"
 	@if command -v uv >/dev/null 2>&1; then \
 		uv run pytest; \
 	elif command -v pytest >/dev/null 2>&1; then \
@@ -79,14 +91,25 @@ test:
 		python -m pytest; \
 	fi
 
-# Run tests with coverage
-test-cov:
-	@echo "Running tests with coverage..."
+# Generate test coverage report
+coverage:
+	@echo "$(BLUE)Generating coverage report...$(NC)"
 	@if command -v uv >/dev/null 2>&1; then \
-		uv run pytest --cov=src --cov-report=html --cov-report=term; \
+		uv run pytest tests/ --cov=src/chuk_mcp_runtime --cov-report=html --cov-report=term --cov-report=xml; \
 	else \
-		pytest --cov=src --cov-report=html --cov-report=term; \
+		pytest tests/ --cov=src/chuk_mcp_runtime --cov-report=html --cov-report=term --cov-report=xml; \
 	fi
+	@echo "$(GREEN)✓ Coverage report generated$(NC)"
+	@echo "  HTML report: htmlcov/index.html"
+	@echo "  XML report:  coverage.xml"
+
+# Open coverage HTML report
+coverage-html: coverage
+	@echo "$(BLUE)Opening coverage report...$(NC)"
+	@open htmlcov/index.html 2>/dev/null || xdg-open htmlcov/index.html 2>/dev/null || echo "Please open htmlcov/index.html manually"
+
+# Legacy alias for coverage
+test-cov: coverage
 
 # Run the server launcher
 run:

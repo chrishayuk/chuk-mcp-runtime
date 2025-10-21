@@ -29,23 +29,17 @@ from chuk_mcp_runtime.server.logging_config import configure_logging, get_logger
 from chuk_mcp_runtime.server.server import MCPServer
 from chuk_mcp_runtime.server.server_registry import ServerRegistry
 from chuk_mcp_runtime.session.native_session_management import (
-    MCPSessionManager,
     create_mcp_session_manager,
 )
 from chuk_mcp_runtime.tools import (
-    register_session_tools,
-    register_artifacts_tools,
     get_artifact_tools,
+    register_artifacts_tools,
+    register_session_tools,
 )
 
 logger = get_logger("chuk_mcp_runtime.entry")
 
 # ───────────────────────────── Tool Registration ──────────────────────────
-from chuk_mcp_runtime.tools import (
-    register_session_tools,
-    register_artifacts_tools,
-    get_artifact_tools,
-)
 
 # ───────────────────────────── Configuration ──────────────────────────────
 HAS_PROXY_SUPPORT = True  # tests may override
@@ -91,9 +85,7 @@ async def run_runtime_async(
 
     # 2) Native session management initialization
     session_manager = create_mcp_session_manager(cfg)
-    logger.info(
-        "Native session manager initialized for sandbox: %s", session_manager.sandbox_id
-    )
+    logger.info("Native session manager initialized for sandbox: %s", session_manager.sandbox_id)
 
     # 3) Optional component bootstrap
     if bootstrap_components and not os.getenv("NO_BOOTSTRAP"):
@@ -131,9 +123,7 @@ async def run_runtime_async(
             proxy_mgr = ProxyServerManager(cfg, project_root)
             await proxy_mgr.start_servers()
             if proxy_mgr.running:
-                logger.debug(
-                    "Proxy layer enabled - %d server(s) booted", len(proxy_mgr.running)
-                )
+                logger.debug("Proxy layer enabled - %d server(s) booted", len(proxy_mgr.running))
         except Exception as exc:
             logger.error("Proxy bootstrap error: %s", exc, exc_info=True)
             proxy_mgr = None
@@ -152,9 +142,7 @@ async def run_runtime_async(
         for n in TOOLS_REGISTRY
         if any(kw in n for kw in ("file", "upload", "write", "read", "list"))
     )
-    logger.info(
-        "Tools in registry: %d total, %d artifact-related", tool_total, art_related
-    )
+    logger.info("Tools in registry: %d total, %d artifact-related", tool_total, art_related)
 
     session_stats = session_manager.get_cache_stats()
     logger.info("Session manager stats: %s", session_stats)

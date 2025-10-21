@@ -23,11 +23,11 @@ async def test_registry():
     )
 
     # Import and set up tools
-    from chuk_mcp_runtime.tools import register_artifacts_tools
     from chuk_mcp_runtime.common.mcp_tool_decorator import (
         TOOLS_REGISTRY,
         initialize_tool_registry,
     )
+    from chuk_mcp_runtime.tools import register_artifacts_tools
 
     print("📋 Before registration:")
     print(f"   Registry size: {len(TOOLS_REGISTRY)}")
@@ -44,7 +44,7 @@ async def test_registry():
     success = await register_artifacts_tools(config)
     print(f"✅ Registration success: {success}")
 
-    print(f"\n📋 After registration:")
+    print("\n📋 After registration:")
     print(f"   Registry size: {len(TOOLS_REGISTRY)}")
 
     # Check each tool
@@ -56,15 +56,13 @@ async def test_registry():
         if has_metadata:
             tool_meta = func._mcp_tool
             print(f"     - Description: {tool_meta.description[:50]}...")
-            print(
-                f"     - Schema: {len(tool_meta.inputSchema.get('properties', {}))} params"
-            )
+            print(f"     - Schema: {len(tool_meta.inputSchema.get('properties', {}))} params")
 
     # Initialize tools
-    print(f"\n🔧 Initializing tools...")
+    print("\n🔧 Initializing tools...")
     await initialize_tool_registry()
 
-    print(f"\n📋 After initialization:")
+    print("\n📋 After initialization:")
     for name, func in TOOLS_REGISTRY.items():
         has_metadata = hasattr(func, "_mcp_tool")
         needs_init = hasattr(func, "_needs_init") and func._needs_init
@@ -79,10 +77,8 @@ async def test_registry():
 
             # Show parameter details
             if schema_props:
-                print(f"     - Parameters:")
-                for param_name, param_def in list(schema_props.items())[
-                    :4
-                ]:  # Show first 4 params
+                print("     - Parameters:")
+                for param_name, param_def in list(schema_props.items())[:4]:  # Show first 4 params
                     param_type = param_def.get("type", "unknown")
                     param_desc = param_def.get("description", "No description")
                     print(f"       • {param_name} ({param_type}): {param_desc}")
@@ -97,10 +93,8 @@ async def test_registry():
             print()  # Empty line for readability
 
     # Test the list_tools logic directly
-    print(f"\n🧪 Testing list_tools logic:")
-    tools_list = [
-        func._mcp_tool for func in TOOLS_REGISTRY.values() if hasattr(func, "_mcp_tool")
-    ]
+    print("\n🧪 Testing list_tools logic:")
+    tools_list = [func._mcp_tool for func in TOOLS_REGISTRY.values() if hasattr(func, "_mcp_tool")]
     print(f"   Found {len(tools_list)} tools with metadata")
 
     if tools_list:

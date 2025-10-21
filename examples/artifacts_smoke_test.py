@@ -29,9 +29,9 @@ import shutil
 import string
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Tuple, Any
+from typing import List, Tuple
 
-from chuk_artifacts import ArtifactStore, ArtifactNotFoundError
+from chuk_artifacts import ArtifactNotFoundError, ArtifactStore
 
 # ---------------------------------------------------------------------------
 # Test matrix - feel free to extend!
@@ -167,9 +167,7 @@ async def _run_combo(session_p: str, storage_p: str, description: str):
 
     # Ensure filesystem bucket dir exists so validation fallback is happy
     if storage_p == "filesystem":
-        (Path(os.environ["ARTIFACT_FS_ROOT"]) / bucket_name).mkdir(
-            parents=True, exist_ok=True
-        )
+        (Path(os.environ["ARTIFACT_FS_ROOT"]) / bucket_name).mkdir(parents=True, exist_ok=True)
 
     try:
         store = ArtifactStore(

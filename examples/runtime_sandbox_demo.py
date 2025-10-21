@@ -29,16 +29,15 @@ import os
 import textwrap
 
 from dotenv import load_dotenv
-from uuid import uuid4
 
 # Load .env so the script behaves like the runtime
 load_dotenv()
 
 # ── runtime plumbing -------------------------------------------------
-from chuk_mcp_runtime.session.session_bridge import get_session_manager
 import chuk_mcp_runtime.session.session_bridge as bridge
 from chuk_artifacts import ArtifactStore
 from chuk_artifacts.config import configure_memory  # keep the demo self-contained
+from chuk_mcp_runtime.session.session_bridge import get_session_manager
 
 
 # ─────────────────── helper to flush the singleton ──────────────────

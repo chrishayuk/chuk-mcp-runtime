@@ -5,11 +5,11 @@ This module sets up a shared logger with configurable logging levels,
 formats, and per-logger overrides based on configuration.
 """
 
+import logging
 import os
 import sys
-import logging
 from logging import Logger
-from typing import Dict, Any, Optional
+from typing import Any, Dict
 
 
 def configure_logging(config: Dict[str, Any] = None) -> None:
@@ -83,8 +83,9 @@ def get_logger(name: str = None, config: Dict[str, Any] = None) -> Logger:
     if name is None:
         import inspect
 
-        frame = inspect.currentframe().f_back
-        module = inspect.getmodule(frame)
+        current_frame = inspect.currentframe()
+        frame = current_frame.f_back if current_frame else None
+        module = inspect.getmodule(frame) if frame else None
         name = module.__name__ if module else "chuk_mcp_runtime"
 
     # Ensure our base prefix is in the name

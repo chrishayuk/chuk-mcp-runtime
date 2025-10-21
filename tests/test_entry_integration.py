@@ -3,14 +3,11 @@
 Test module for proxy integration functionality with native session management.
 """
 
-import pytest
-import os
-import sys
 import asyncio
-from unittest.mock import MagicMock, patch
+
+import pytest
 
 # Import entry module
-import chuk_mcp_runtime.entry as entry
 
 
 def run_async(coro):
@@ -49,9 +46,7 @@ class AsyncMock:
 class EnhancedMockMCPSessionManager:
     """Enhanced mock native session manager with all required methods."""
 
-    def __init__(
-        self, sandbox_id=None, default_ttl_hours=24, auto_extend_threshold=0.1
-    ):
+    def __init__(self, sandbox_id=None, default_ttl_hours=24, auto_extend_threshold=0.1):
         self.sandbox_id = sandbox_id or "integration-test-sandbox"
         self.default_ttl_hours = default_ttl_hours
         self.auto_extend_threshold = auto_extend_threshold
@@ -91,9 +86,7 @@ class EnhancedMockMCPSessionManager:
     async def auto_create_session_if_needed(self, user_id=None):
         if self._current_session and await self.validate_session(self._current_session):
             return self._current_session
-        session_id = await self.create_session(
-            user_id=user_id, metadata={"auto_created": True}
-        )
+        session_id = await self.create_session(user_id=user_id, metadata={"auto_created": True})
         self.set_current_session(session_id, user_id)
         return session_id
 
@@ -104,9 +97,7 @@ class EnhancedMockMCPSessionManager:
 class MockSessionContext:
     """Mock session context manager."""
 
-    def __init__(
-        self, session_manager, session_id=None, user_id=None, auto_create=True
-    ):
+    def __init__(self, session_manager, session_id=None, user_id=None, auto_create=True):
         self.session_manager = session_manager
         self.session_id = session_id
         self.user_id = user_id
@@ -119,9 +110,7 @@ class MockSessionContext:
             self.session_manager.set_current_session(self.session_id, self.user_id)
             return self.session_id
         elif self.auto_create:
-            session_id = await self.session_manager.auto_create_session_if_needed(
-                self.user_id
-            )
+            session_id = await self.session_manager.auto_create_session_if_needed(self.user_id)
             return session_id
         else:
             raise ValueError("No session provided and auto_create=False")
@@ -201,9 +190,7 @@ async def test_artifact_tools_session_integration():
         }
 
         # Test session injection
-        injected_args = await mock_with_session_auto_inject(
-            session_manager, "upload_file", args
-        )
+        injected_args = await mock_with_session_auto_inject(session_manager, "upload_file", args)
 
         # Should have session_id injected
         assert "session_id" in injected_args
@@ -239,9 +226,7 @@ async def test_session_context_management():
 
         # Test with specific session
         created_session = await session_manager.create_session(user_id="test_user")
-        async with MockSessionContext(
-            session_manager, session_id=created_session
-        ) as session_id:
+        async with MockSessionContext(session_manager, session_id=created_session) as session_id:
             assert session_id == created_session
             assert session_manager.get_current_session() == created_session
             assert session_manager.get_current_user() == "test_user"
@@ -261,9 +246,7 @@ async def test_session_injection_for_artifact_tools():
     async def test_injection():
         # Test with artifact tool that needs session
         args = {"content": "test content", "filename": "test.txt"}
-        injected_args = await mock_with_session_auto_inject(
-            session_manager, "upload_file", args
-        )
+        injected_args = await mock_with_session_auto_inject(session_manager, "upload_file", args)
 
         assert "session_id" in injected_args
         assert injected_args["session_id"].startswith("session-")
@@ -271,9 +254,7 @@ async def test_session_injection_for_artifact_tools():
 
         # Test with non-artifact tool
         args2 = {"query": "test"}
-        injected_args2 = await mock_with_session_auto_inject(
-            session_manager, "search_web", args2
-        )
+        injected_args2 = await mock_with_session_auto_inject(session_manager, "search_web", args2)
 
         assert injected_args2 == args2  # No injection for non-artifact tools
 
@@ -383,13 +364,12 @@ if __name__ == "__main__":
 """
 Fixed version of server session tests.
 """
-import pytest
-import asyncio
 import json
 from contextlib import asynccontextmanager
 
+import pytest
+from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY, mcp_tool
 from chuk_mcp_runtime.server.server import MCPServer
-from chuk_mcp_runtime.common.mcp_tool_decorator import mcp_tool, TOOLS_REGISTRY
 
 # Capture created servers for testing
 _created_servers = []
@@ -525,9 +505,7 @@ class TestNativeSessionContextInjection:
 
         # Test call without session_id - should auto-inject
         result = run_async(
-            call_tool(
-                "upload_file", {"filename": "test.txt", "content": "test content"}
-            )
+            call_tool("upload_file", {"filename": "test.txt", "content": "test content"})
         )
 
         assert len(result) == 1
@@ -575,15 +553,9 @@ class TestNativeSessionIsolation:
 
             # Make concurrent calls
             results = await asyncio.gather(
-                call_tool(
-                    "upload_file", {"filename": "file1.txt", "content": "content1"}
-                ),
-                call_tool(
-                    "upload_file", {"filename": "file2.txt", "content": "content2"}
-                ),
-                call_tool(
-                    "upload_file", {"filename": "file3.txt", "content": "content3"}
-                ),
+                call_tool("upload_file", {"filename": "file1.txt", "content": "content1"}),
+                call_tool("upload_file", {"filename": "file2.txt", "content": "content2"}),
+                call_tool("upload_file", {"filename": "file3.txt", "content": "content3"}),
             )
 
             # Verify all calls succeeded

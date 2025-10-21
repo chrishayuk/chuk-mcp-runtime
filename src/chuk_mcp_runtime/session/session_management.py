@@ -17,27 +17,28 @@ async with SessionContext(session_manager, user_id="alice") as session_id:
 
 # Import everything from the native implementation
 from typing import Optional
+
 from chuk_mcp_runtime.session.native_session_management import (
     # Core native classes
     MCPSessionManager,
     SessionContext,
-    create_mcp_session_manager,
-    # Context helpers
-    require_session,
-    get_session_or_none,
-    get_user_or_none,
-    # Tool integration
-    with_session_auto_inject,
-    session_required,
-    session_optional,
     # Exceptions
     SessionError,
     SessionNotFoundError,
     SessionValidationError,
+    clear_session_context,
+    create_mcp_session_manager,
+    get_session_context,
+    get_session_or_none,
+    get_user_or_none,
+    # Context helpers
+    require_session,
+    session_optional,
+    session_required,
     # Backwards compatibility functions (these exist for legacy support)
     set_session_context,
-    get_session_context,
-    clear_session_context,
+    # Tool integration
+    with_session_auto_inject,
 )
 
 
@@ -85,9 +86,7 @@ async def validate_session_parameter(
         return new_session
 
     # No session available and can't create one
-    raise SessionError(
-        f"Operation '{operation}' requires valid session_id or session manager"
-    )
+    raise SessionError(f"Operation '{operation}' requires valid session_id or session manager")
 
 
 # Re-export everything for clean imports
@@ -118,9 +117,7 @@ __all__ = [
 
 
 # Convenience factory function
-def create_session_manager(
-    sandbox_id=None, default_ttl_hours=24, auto_extend_threshold=0.1
-):
+def create_session_manager(sandbox_id=None, default_ttl_hours=24, auto_extend_threshold=0.1):
     """
     Create a new session manager with the given configuration.
 

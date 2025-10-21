@@ -1,21 +1,20 @@
 # tests/test_entry_extended.py
+import asyncio
 import os
 import sys
-import asyncio
-import pytest
-from unittest.mock import MagicMock, AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import chuk_mcp_runtime.entry as entry
+import pytest
 from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY
+
 from tests.conftest import MockProxyServerManager, run_async
 
 
 class MockMCPSessionManager:
     """Mock native session manager."""
 
-    def __init__(
-        self, sandbox_id=None, default_ttl_hours=24, auto_extend_threshold=0.1
-    ):
+    def __init__(self, sandbox_id=None, default_ttl_hours=24, auto_extend_threshold=0.1):
         self.sandbox_id = sandbox_id or "test-sandbox"
         self.default_ttl_hours = default_ttl_hours
         self.auto_extend_threshold = auto_extend_threshold
@@ -51,9 +50,7 @@ class MockMCPSessionManager:
 class MockSessionContext:
     """Mock session context manager."""
 
-    def __init__(
-        self, session_manager, session_id=None, user_id=None, auto_create=True
-    ):
+    def __init__(self, session_manager, session_id=None, user_id=None, auto_create=True):
         self.session_manager = session_manager
         self.session_id = session_id
         self.user_id = user_id
@@ -63,9 +60,7 @@ class MockSessionContext:
         if self.session_id:
             return self.session_id
         elif self.auto_create:
-            return await self.session_manager.auto_create_session_if_needed(
-                self.user_id
-            )
+            return await self.session_manager.auto_create_session_if_needed(self.user_id)
         return "test-session"
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
@@ -111,9 +106,7 @@ class DummyMCPServer:
 
     async def create_user_session(self, user_id, metadata=None):
         """Create a new user session."""
-        return await self.session_manager.create_session(
-            user_id=user_id, metadata=metadata
-        )
+        return await self.session_manager.create_session(user_id=user_id, metadata=metadata)
 
 
 class MockArtifactTools:
@@ -154,9 +147,7 @@ def patch_entry(monkeypatch):
     # Mock native session management
     monkeypatch.setattr(entry, "MCPSessionManager", MockMCPSessionManager)
     monkeypatch.setattr(entry, "SessionContext", MockSessionContext)
-    monkeypatch.setattr(
-        entry, "create_mcp_session_manager", lambda config: MockMCPSessionManager()
-    )
+    monkeypatch.setattr(entry, "create_mcp_session_manager", lambda config: MockMCPSessionManager())
 
     # Mock session integration helper
     async def mock_with_session_auto_inject(session_manager, tool_name, args):
@@ -180,9 +171,7 @@ def patch_entry(monkeypatch):
             return {**args, "session_id": session_id}
         return args
 
-    monkeypatch.setattr(
-        entry, "with_session_auto_inject", mock_with_session_auto_inject
-    )
+    monkeypatch.setattr(entry, "with_session_auto_inject", mock_with_session_auto_inject)
 
     # Mock the server classes
     monkeypatch.setattr(entry, "ServerRegistry", DummyServerRegistry)

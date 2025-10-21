@@ -23,12 +23,10 @@ import asyncio
 import os
 import textwrap
 from datetime import datetime
-from uuid import uuid4
-
-from dotenv import load_dotenv
 
 # ← we import **the wrapper**, not chuk_artifacts directly
 from chuk_mcp_runtime.artifacts import ArtifactStore
+from dotenv import load_dotenv
 
 
 def heading(txt: str) -> None:
@@ -53,9 +51,7 @@ async def main() -> None:
     )
 
     ok = await store.validate_configuration()
-    provider_line = (
-        f"{storage_provider.upper()} / {session_provider.upper()}  →  {bucket}"
-    )
+    provider_line = f"{storage_provider.upper()} / {session_provider.upper()}  →  {bucket}"
     heading(f"🔧  Using {provider_line}")
     print(textwrap.indent(str(ok), "   "))
 

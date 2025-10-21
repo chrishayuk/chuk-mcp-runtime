@@ -11,23 +11,19 @@ from pathlib import Path
 src_path = Path(__file__).parent.parent / "src"
 sys.path.insert(0, str(src_path))
 
+from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY
 from chuk_mcp_runtime.tools import (
-    register_all_tools,
     get_all_tools_info,
-    register_session_tools,
+    register_all_tools,
     register_artifacts_tools,
-)
-from chuk_mcp_runtime.tools.session_tools import (
-    DEFAULT_SESSION_TOOLS_CONFIG,
-    get_enabled_session_tools,
-    configure_session_tools,
+    register_session_tools,
 )
 from chuk_mcp_runtime.tools.artifacts_tools import (
     DEFAULT_TOOL_CONFIG,
-    get_enabled_tools as get_enabled_artifact_tools,
-    configure_artifacts_tools,
 )
-from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY
+from chuk_mcp_runtime.tools.session_tools import (
+    DEFAULT_SESSION_TOOLS_CONFIG,
+)
 
 
 async def main():
@@ -38,9 +34,7 @@ async def main():
     TOOLS_REGISTRY.clear()
 
     print("📋 DEFAULT CONFIGURATIONS:")
-    print(
-        f"   Session tools enabled by default: {DEFAULT_SESSION_TOOLS_CONFIG['enabled']}"
-    )
+    print(f"   Session tools enabled by default: {DEFAULT_SESSION_TOOLS_CONFIG['enabled']}")
     print(f"   Artifact tools enabled by default: {DEFAULT_TOOL_CONFIG['enabled']}")
 
     print("\n🧪 Testing with no configuration (should have no tools):")
@@ -56,9 +50,9 @@ async def main():
 
     print("\n🔍 Checking session tool decorators directly:")
     from chuk_mcp_runtime.tools.session_tools import (
+        clear_session_context_tool,
         get_current_session,
         set_session_context_tool,
-        clear_session_context_tool,
     )
 
     test_tools = {
@@ -152,17 +146,15 @@ async def main():
         tool_type = "🔐" if "session" in tool_name else "📁"
         print(f"   {tool_type} {has_metadata} {tool_name}")
 
-    print(f"\n🎯 Summary:")
-    print(
-        f"   📁 Artifact tools: {len([t for t in TOOLS_REGISTRY if 'session' not in t])}"
-    )
+    print("\n🎯 Summary:")
+    print(f"   📁 Artifact tools: {len([t for t in TOOLS_REGISTRY if 'session' not in t])}")
     print(
         f"   🔐 Session tools: {len([t for t in TOOLS_REGISTRY if 'session' in t or 'clear_session' in t])}"
     )
     print(f"   📊 Total tools: {len(TOOLS_REGISTRY)}")
 
     # Test tool info
-    print(f"\n📋 Tool Info:")
+    print("\n📋 Tool Info:")
     info = get_all_tools_info()
     print(f"   Categories: {info['categories']}")
     print(f"   Total enabled: {info['total_enabled']}")

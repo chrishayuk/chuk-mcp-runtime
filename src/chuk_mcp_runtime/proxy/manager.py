@@ -18,19 +18,18 @@ from `TOOLS_REGISTRY` when OpenAI mode is on.
 from __future__ import annotations
 
 import json
-import logging
 import os
 import tempfile
-from typing import Any, Callable, Dict, List, Set
+from typing import Any, Callable, Dict, List
 
 from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY
 from chuk_mcp_runtime.common.openai_compatibility import (
     create_openai_compatible_wrapper,
     to_openai_compatible_name,
 )
+from chuk_mcp_runtime.common.tool_naming import resolve_tool_name, update_naming_maps
 from chuk_mcp_runtime.proxy.tool_wrapper import create_proxy_tool
 from chuk_mcp_runtime.server.logging_config import get_logger
-from chuk_mcp_runtime.common.tool_naming import resolve_tool_name, update_naming_maps
 
 try:
     from chuk_tool_processor.mcp import setup_mcp_stdio
@@ -67,7 +66,7 @@ class ProxyServerManager:
         self.stream_manager = None
         self.running: Dict[str, Dict[str, Any]] = {}
         self.openai_wrappers: Dict[str, Callable] = {}
-        self._tmp_cfg: tempfile.NamedTemporaryFile | None = None
+        self._tmp_cfg: Any = None  # tempfile._TemporaryFileWrapper type is internal
 
         # Update the tool naming maps
         update_naming_maps()
@@ -79,7 +78,8 @@ class ProxyServerManager:
             return
 
         stdio_cfg: Dict[str, Any] = {"mcpServers": {}}
-        stdio, stdio_map = [], {}
+        stdio: list[str] = []
+        stdio_map: dict[int, str] = {}
         for name, opts in self.mcp_servers.items():
             if opts.get("type", "stdio") != "stdio":
                 continue
@@ -140,9 +140,7 @@ class ProxyServerManager:
                 dotted_full = f"{dotted_ns}.{tool_name}"
 
                 # 1) Always create internal dot-wrapper
-                wrapper = await create_proxy_tool(
-                    dotted_ns, tool_name, self.stream_manager, meta
-                )
+                wrapper = await create_proxy_tool(dotted_ns, tool_name, self.stream_manager, meta)
                 self.running[server]["wrappers"][tool_name] = wrapper
 
                 if self.openai_mode:
@@ -150,9 +148,7 @@ class ProxyServerManager:
                     TOOLS_REGISTRY.pop(dotted_full, None)
 
                     # Build underscore alias once
-                    under_name = to_openai_compatible_name(
-                        strip_proxy_prefix(dotted_full)
-                    )
+                    under_name = to_openai_compatible_name(strip_proxy_prefix(dotted_full))
                     if under_name in self.openai_wrappers:
                         continue
                     alias = await create_openai_compatible_wrapper(dotted_full, wrapper)
@@ -176,9 +172,7 @@ class ProxyServerManager:
         # expose dot names
         exposed: Dict[str, Callable] = {}
         for srv, info in self.running.items():
-            exposed.update(
-                {f"{self.ns_root}.{srv}.{n}": fn for n, fn in info["wrappers"].items()}
-            )
+            exposed.update({f"{self.ns_root}.{srv}.{n}": fn for n, fn in info["wrappers"].items()})
         return exposed
 
     async def call_tool(self, name: str, **kw):
@@ -222,9 +216,7 @@ class ProxyServerManager:
             tool = parts[-1]
 
         # Log the resolution for debugging
-        logger.debug(
-            f"Calling tool {tool} on server {srv} (from original name: {name})"
-        )
+        logger.debug(f"Calling tool {tool} on server {srv} (from original name: {name})")
 
         # Make sure the stream manager exists
         if not self.stream_manager:
@@ -235,7 +227,7 @@ class ProxyServerManager:
 
     async def process_text(self, text: str) -> List[Dict[str, Any]]:
         """Process text with any available text processors in the proxy servers."""
-        results = []
+        results: list[dict[str, Any]] = []
 
         # Check if any server supports text processing
         for server_name, server_info in self.running.items():

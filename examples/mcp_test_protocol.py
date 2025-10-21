@@ -4,11 +4,11 @@ Test the raw MCP protocol to see if the issue is in the protocol handling
 """
 
 import json
+import os
+import select
 import subprocess
 import tempfile
 import time
-import os
-import select
 from pathlib import Path
 
 
@@ -128,9 +128,7 @@ def test_mcp_protocol():
                                         if "result" in response:
                                             print(f"✅ {test['name']} succeeded")
                                             if test["name"] == "tools/list":
-                                                tools = response["result"].get(
-                                                    "tools", []
-                                                )
+                                                tools = response["result"].get("tools", [])
                                                 print(f"   Found {len(tools)} tools")
                                         elif "error" in response:
                                             print(
@@ -139,9 +137,7 @@ def test_mcp_protocol():
                                         response_received = True
                                         break
                                 except json.JSONDecodeError:
-                                    print(
-                                        f"⚠️  Non-JSON response: {response_line.strip()}"
-                                    )
+                                    print(f"⚠️  Non-JSON response: {response_line.strip()}")
                             else:
                                 break
                         except Exception as e:
@@ -153,9 +149,7 @@ def test_mcp_protocol():
                         break
 
                 if not response_received:
-                    print(
-                        f"❌ {test['name']} timed out after {test['timeout']} seconds"
-                    )
+                    print(f"❌ {test['name']} timed out after {test['timeout']} seconds")
             else:
                 # For notifications, just wait a moment
                 print(f"✅ {test['name']} notification sent")

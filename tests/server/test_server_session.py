@@ -3,13 +3,13 @@
 Fixed version of server session tests.
 """
 
-import pytest
 import asyncio
 import json
 from contextlib import asynccontextmanager
 
+import pytest
+from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY, mcp_tool
 from chuk_mcp_runtime.server.server import MCPServer
-from chuk_mcp_runtime.common.mcp_tool_decorator import mcp_tool, TOOLS_REGISTRY
 
 # Capture created servers for testing
 _created_servers = []
@@ -145,9 +145,7 @@ class TestNativeSessionContextInjection:
 
         # Test call without session_id - should auto-inject
         result = run_async(
-            call_tool(
-                "upload_file", {"filename": "test.txt", "content": "test content"}
-            )
+            call_tool("upload_file", {"filename": "test.txt", "content": "test content"})
         )
 
         assert len(result) == 1
@@ -195,15 +193,9 @@ class TestNativeSessionIsolation:
 
             # Make concurrent calls
             results = await asyncio.gather(
-                call_tool(
-                    "upload_file", {"filename": "file1.txt", "content": "content1"}
-                ),
-                call_tool(
-                    "upload_file", {"filename": "file2.txt", "content": "content2"}
-                ),
-                call_tool(
-                    "upload_file", {"filename": "file3.txt", "content": "content3"}
-                ),
+                call_tool("upload_file", {"filename": "file1.txt", "content": "content1"}),
+                call_tool("upload_file", {"filename": "file2.txt", "content": "content2"}),
+                call_tool("upload_file", {"filename": "file3.txt", "content": "content3"}),
             )
 
             # Verify all calls succeeded

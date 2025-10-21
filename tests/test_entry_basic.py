@@ -3,10 +3,10 @@
 Test module for basic functionality of chuk_mcp_runtime entry point.
 """
 
-import pytest
 import sys
-import asyncio
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 # Mock the problematic artifacts_tools module before ANY imports
 mock_artifacts_tools = MagicMock()
@@ -16,30 +16,25 @@ mock_artifacts_tools.validate_session_parameter = (
 sys.modules["chuk_mcp_runtime.tools.artifacts_tools"] = mock_artifacts_tools
 
 # Import our test infrastructure
-from tests.conftest import (
-    MockProxyServerManager,
-    MockMCPSessionManager,
-    MockSessionContext,
-    DummyServerRegistry,
-    mock_session_ctx,
-    mock_user_ctx,
-    mock_require_session,
-    mock_get_session_or_none,
-    mock_with_session_auto_inject,
-    run_async,
-    AsyncMock as TestAsyncMock,
-)
-
 # Import the entry module
 import chuk_mcp_runtime.entry as entry
+
+from tests.conftest import (
+    DummyServerRegistry,
+    MockMCPSessionManager,
+    MockSessionContext,
+    TestAsyncMock,
+    mock_get_session_or_none,
+    mock_require_session,
+    mock_with_session_auto_inject,
+    run_async,
+)
 
 
 class EnhancedMockMCPSessionManager(MockMCPSessionManager):
     """Enhanced mock session manager that properly handles configuration."""
 
-    def __init__(
-        self, sandbox_id=None, default_ttl_hours=24, auto_extend_threshold=0.1
-    ):
+    def __init__(self, sandbox_id=None, default_ttl_hours=24, auto_extend_threshold=0.1):
         super().__init__(sandbox_id, default_ttl_hours, auto_extend_threshold)
         # Ensure we respect the provided parameters
         self.sandbox_id = sandbox_id or "test-sandbox"
@@ -92,9 +87,7 @@ class DummyMCPServer:
 
     async def create_user_session(self, user_id, metadata=None):
         """Create a new user session."""
-        return await self.session_manager.create_session(
-            user_id=user_id, metadata=metadata
-        )
+        return await self.session_manager.create_session(user_id=user_id, metadata=metadata)
 
 
 # Enhanced proxy manager mock that's compatible across test modules
@@ -159,9 +152,7 @@ def patch_session_management():
     entry.SessionContext = MockSessionContext
     entry.create_mcp_session_manager = lambda config: EnhancedMockMCPSessionManager(
         sandbox_id=config.get("sessions", {}).get("sandbox_id") if config else None,
-        default_ttl_hours=config.get("sessions", {}).get("default_ttl_hours", 24)
-        if config
-        else 24,
+        default_ttl_hours=config.get("sessions", {}).get("default_ttl_hours", 24) if config else 24,
     )
 
     # Replace proxy manager with universal version
@@ -280,15 +271,11 @@ def test_comprehensive_session_workflow():
 
         # Test session auto-injection
         args = {"filename": "test.txt", "content": "data"}
-        injected = await entry.with_session_auto_inject(
-            session_manager, "upload_file", args
-        )
+        injected = await entry.with_session_auto_inject(session_manager, "upload_file", args)
         assert injected["session_id"] == session_id
 
         # Update session
-        success = await session_manager.update_session_metadata(
-            session_id, {"updated": True}
-        )
+        success = await session_manager.update_session_metadata(session_id, {"updated": True})
         assert success is True
 
         # Get session info - should have both metadata structures
@@ -365,18 +352,14 @@ def test_session_auto_injection():
 
         # Test with artifact tool
         args = {"content": "test content", "filename": "test.txt"}
-        injected_args = await entry.with_session_auto_inject(
-            session_manager, "upload_file", args
-        )
+        injected_args = await entry.with_session_auto_inject(session_manager, "upload_file", args)
 
         assert "session_id" in injected_args
         assert injected_args["session_id"].startswith("session-")
 
         # Test with non-artifact tool
         args2 = {"query": "test"}
-        injected_args2 = await entry.with_session_auto_inject(
-            session_manager, "search_web", args2
-        )
+        injected_args2 = await entry.with_session_auto_inject(session_manager, "search_web", args2)
 
         assert injected_args2 == args2  # No injection for non-artifact tools
 
@@ -394,18 +377,19 @@ def test_initialize_tool_registry_called():
     assert "chuk_mcp_runtime.tools.artifacts_tools" in sys.modules
 
     # Using context managers is cleaner and safer
-    with patch("chuk_mcp_runtime.entry.ServerRegistry", DummyServerRegistry), patch(
-        "chuk_mcp_runtime.entry.initialize_tool_registry"
-    ) as mock_init, patch(
-        "chuk_mcp_runtime.entry.load_config",
-        return_value={"proxy": {"enabled": False}, "sessions": {"sandbox_id": "test"}},
-    ), patch("chuk_mcp_runtime.entry.configure_logging"), patch(
-        "chuk_mcp_runtime.entry.find_project_root", return_value="/tmp"
-    ), patch("asyncio.run", side_effect=run_async):
+    with (
+        patch("chuk_mcp_runtime.entry.ServerRegistry", DummyServerRegistry),
+        patch("chuk_mcp_runtime.entry.initialize_tool_registry") as mock_init,
+        patch(
+            "chuk_mcp_runtime.entry.load_config",
+            return_value={"proxy": {"enabled": False}, "sessions": {"sandbox_id": "test"}},
+        ),
+        patch("chuk_mcp_runtime.entry.configure_logging"),
+        patch("chuk_mcp_runtime.entry.find_project_root", return_value="/tmp"),
+        patch("asyncio.run", side_effect=run_async),
+    ):
         # Create a custom server that won't try to use stdio
-        server = DummyMCPServer(
-            {"server": {"type": "stdio"}, "sessions": {"sandbox_id": "test"}}
-        )
+        server = DummyMCPServer({"server": {"type": "stdio"}, "sessions": {"sandbox_id": "test"}})
 
         # Patch MCPServer separately to use our custom instance
         with patch("chuk_mcp_runtime.entry.MCPServer", return_value=server):

@@ -3,13 +3,12 @@
 Fixed server tests that match the actual server behavior.
 """
 
-import pytest
 import asyncio
-from unittest.mock import Mock, AsyncMock, patch
 from contextlib import asynccontextmanager
 
+import pytest
+from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY, mcp_tool
 from chuk_mcp_runtime.server.server import MCPServer
-from chuk_mcp_runtime.common.mcp_tool_decorator import mcp_tool, TOOLS_REGISTRY
 
 # Track created fake servers
 _created_servers = []

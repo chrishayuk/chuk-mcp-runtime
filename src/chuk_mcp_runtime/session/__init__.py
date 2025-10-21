@@ -24,20 +24,20 @@ from chuk_mcp_runtime.session.session_management import (
     # Core classes
     MCPSessionManager,
     SessionContext,
-    create_mcp_session_manager,
-    create_session_manager,
-    # Context helpers
-    require_session,
-    get_session_or_none,
-    get_user_or_none,
-    # Tool integration
-    with_session_auto_inject,
-    session_required,
-    session_optional,
     # Exceptions
     SessionError,
     SessionNotFoundError,
     SessionValidationError,
+    create_mcp_session_manager,
+    create_session_manager,
+    get_session_or_none,
+    get_user_or_none,
+    # Context helpers
+    require_session,
+    session_optional,
+    session_required,
+    # Tool integration
+    with_session_auto_inject,
 )
 
 # Public API - what users should import

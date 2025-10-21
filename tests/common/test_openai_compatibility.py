@@ -6,25 +6,22 @@ Tests the conversion between dot notation and underscore notation,
 as well as the creation and registration of OpenAI-compatible wrappers.
 """
 
-import pytest
-import asyncio
-from typing import Dict, Any, List
 import inspect
-from unittest.mock import patch, AsyncMock as UnitTestAsyncMock
+from unittest.mock import patch
+
+import pytest
+from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY, Tool
 
 # Import the module being tested
 from chuk_mcp_runtime.common.openai_compatibility import (
-    to_openai_compatible_name,
-    from_openai_compatible_name,
-    create_openai_compatible_wrapper,
     OpenAIToolsAdapter,
-    initialize_openai_compatibility,
-    adapter,
     _build_wrapper_from_schema,
+    adapter,
+    create_openai_compatible_wrapper,
+    from_openai_compatible_name,
+    initialize_openai_compatibility,
+    to_openai_compatible_name,
 )
-from chuk_mcp_runtime.common.mcp_tool_decorator import Tool, TOOLS_REGISTRY, mcp_tool
-
-from tests.common.test_mocks import run_async
 
 
 # Clear the registry before tests and restore after
@@ -67,10 +64,7 @@ def test_to_openai_compatible_name():
     assert to_openai_compatible_name("weather.get_forecast") == "weather_get_forecast"
 
     # Handle multiple dots
-    assert (
-        to_openai_compatible_name("proxy.weather.get_forecast")
-        == "proxy_weather_get_forecast"
-    )
+    assert to_openai_compatible_name("proxy.weather.get_forecast") == "proxy_weather_get_forecast"
 
     # Handle invalid characters
     assert to_openai_compatible_name("weather.get@forecast") == "weather_get_forecast"
@@ -90,10 +84,7 @@ def test_from_openai_compatible_name():
     assert from_openai_compatible_name("weather_get_forecast") == "weather.get.forecast"
 
     # Handle multiple underscores
-    assert (
-        from_openai_compatible_name("proxy_weather_get_forecast")
-        == "proxy.weather.get.forecast"
-    )
+    assert from_openai_compatible_name("proxy_weather_get_forecast") == "proxy.weather.get.forecast"
 
     # Handle empty string
     assert from_openai_compatible_name("") == ""
@@ -166,9 +157,7 @@ async def test_create_openai_compatible_wrapper(clear_tools_registry):
     TOOLS_REGISTRY["weather.get_forecast"] = get_forecast
 
     # Create the wrapper
-    wrapper = await create_openai_compatible_wrapper(
-        "weather.get_forecast", get_forecast
-    )
+    wrapper = await create_openai_compatible_wrapper("weather.get_forecast", get_forecast)
 
     # Check the wrapper
     assert wrapper is not None
@@ -208,9 +197,7 @@ async def test_create_openai_compatible_wrapper_with_proxy_metadata(
     }
 
     # Create the wrapper
-    wrapper = await create_openai_compatible_wrapper(
-        "proxy.search.query", proxy_function
-    )
+    wrapper = await create_openai_compatible_wrapper("proxy.search.query", proxy_function)
 
     # Check the wrapper
     assert wrapper is not None
@@ -384,9 +371,7 @@ async def test_openai_tools_adapter_get_tools_definition(clear_tools_registry):
     TOOLS_REGISTRY["weather_get_forecast"] = weather_get_forecast
 
     # Mock the ToolRegistryProvider
-    with patch(
-        "chuk_tool_processor.registry.ToolRegistryProvider", MockToolRegistryProvider
-    ):
+    with patch("chuk_tool_processor.registry.ToolRegistryProvider", MockToolRegistryProvider):
         # Create an adapter instance
         adapter = OpenAIToolsAdapter(TOOLS_REGISTRY)
 
@@ -447,15 +432,11 @@ async def test_openai_tools_adapter_execute_tool(clear_tools_registry):
     adapter = OpenAIToolsAdapter(TOOLS_REGISTRY)
 
     # Execute the tool by original name
-    result1 = await adapter.execute_tool(
-        "weather.get_forecast", location="London", days=5
-    )
+    result1 = await adapter.execute_tool("weather.get_forecast", location="London", days=5)
     assert result1 == "Forecast for London for 5 days"
 
     # Execute the tool by OpenAI-compatible name
-    result2 = await adapter.execute_tool(
-        "weather_get_forecast", location="Paris", days=7
-    )
+    result2 = await adapter.execute_tool("weather_get_forecast", location="Paris", days=7)
     assert result2 == "Forecast for Paris for 7 days (OpenAI version)"
 
     # Test error handling for unknown tool
@@ -487,16 +468,10 @@ def test_openai_tools_adapter_translate_name(clear_tools_registry):
     adapter = OpenAIToolsAdapter(TOOLS_REGISTRY)
 
     # Test translation to OpenAI-compatible name
-    assert (
-        adapter.translate_name("weather.get_forecast", to_openai=True)
-        == "weather_get_forecast"
-    )
+    assert adapter.translate_name("weather.get_forecast", to_openai=True) == "weather_get_forecast"
 
     # Test translation from OpenAI-compatible name
-    assert (
-        adapter.translate_name("weather_get_forecast", to_openai=False)
-        == "weather.get_forecast"
-    )
+    assert adapter.translate_name("weather_get_forecast", to_openai=False) == "weather.get_forecast"
 
     # Test translation of unknown names
     assert adapter.translate_name("unknown.tool", to_openai=True) == "unknown_tool"
@@ -526,9 +501,7 @@ async def test_initialize_openai_compatibility(clear_tools_registry):
     TOOLS_REGISTRY["weather.get_forecast"] = get_forecast
 
     # Mock the ToolRegistryProvider
-    with patch(
-        "chuk_tool_processor.registry.ToolRegistryProvider", MockToolRegistryProvider
-    ):
+    with patch("chuk_tool_processor.registry.ToolRegistryProvider", MockToolRegistryProvider):
         # Initialize OpenAI compatibility
         adapter_inst = await initialize_openai_compatibility()
 

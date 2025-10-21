@@ -6,15 +6,15 @@ This module provides a ServerRegistry class for managing
 CHUK MCP tool servers and their components.
 """
 
+import importlib
 import os
 import sys
-import importlib
-import asyncio
-from typing import List, Dict, Any, Tuple, Optional, Set
+from typing import Any, Dict, List, Set, Tuple
+
+from chuk_mcp_runtime.common.mcp_tool_decorator import scan_for_tools
 
 # get the logger
 from chuk_mcp_runtime.server.logging_config import get_logger
-from chuk_mcp_runtime.common.mcp_tool_decorator import scan_for_tools
 
 
 class ServerRegistry:
@@ -36,7 +36,7 @@ class ServerRegistry:
 
         self.server_paths, self.components = self._setup_server_paths()
         self._setup_python_paths()
-        self.loaded_modules = {}
+        self.loaded_modules: dict[str, Any] = {}
 
     def _setup_server_paths(
         self,
@@ -47,8 +47,8 @@ class ServerRegistry:
         Returns:
             Tuple of (server_paths, components) dictionaries.
         """
-        server_paths = {}
-        components = {}
+        server_paths: dict[str, str] = {}
+        components: dict[str, list[dict[str, Any]]] = {}
 
         # Add core paths
         core_paths = self.config.get("core", {})
@@ -78,30 +78,20 @@ class ServerRegistry:
 
                     # Process components (tools, resources, prompts)
                     self._add_component(server_name, server_config, "tools", components)
-                    self._add_component(
-                        server_name, server_config, "resources", components
-                    )
-                    self._add_component(
-                        server_name, server_config, "prompts", components
-                    )
+                    self._add_component(server_name, server_config, "resources", components)
+                    self._add_component(server_name, server_config, "prompts", components)
 
                     if not os.path.exists(full_path):
-                        self.logger.warning(
-                            f"MCP server location does not exist: {full_path}"
-                        )
+                        self.logger.warning(f"MCP server location does not exist: {full_path}")
 
         # Auto-discovery for testing
         if self.config.get("auto_discover", False):
             self._auto_discover_servers(server_paths, components)
 
         core_servers = [name for name in server_paths.keys() if name in core_paths]
-        mcp_servers_list = [
-            name for name in server_paths.keys() if name not in core_paths
-        ]
+        mcp_servers_list = [name for name in server_paths.keys() if name not in core_paths]
 
-        self.logger.debug(
-            f"Core paths: {', '.join(core_servers) if core_servers else 'None'}"
-        )
+        self.logger.debug(f"Core paths: {', '.join(core_servers) if core_servers else 'None'}")
         self.logger.debug(
             f"MCP servers: {', '.join(mcp_servers_list) if mcp_servers_list else 'None'}"
         )
@@ -126,9 +116,7 @@ class ServerRegistry:
         for server_name in test_servers:
             if server_name not in server_paths:
                 # Create a mock path
-                mock_path = os.path.join(
-                    self.project_root, "servers", server_name, "src"
-                )
+                mock_path = os.path.join(self.project_root, "servers", server_name, "src")
                 server_paths[server_name] = mock_path
                 components[server_name] = []
 
@@ -208,9 +196,7 @@ class ServerRegistry:
                     )
 
                     # Import the module
-                    self.loaded_modules[module_name] = importlib.import_module(
-                        module_name
-                    )
+                    self.loaded_modules[module_name] = importlib.import_module(module_name)
 
                     # If it's a tools component, add to the scan list
                     if component_type == "tools":
@@ -219,9 +205,7 @@ class ServerRegistry:
                 except ImportError as e:
                     # If it's for testing, we'll catch the import error but not raise it
                     if auto_discovered:
-                        self.logger.debug(
-                            f"Auto-discovered module {module_name} not found: {e}"
-                        )
+                        self.logger.debug(f"Auto-discovered module {module_name} not found: {e}")
                     else:
                         self.logger.warning(f"Failed to import {module_name}: {e}")
 

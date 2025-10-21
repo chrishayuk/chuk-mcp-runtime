@@ -9,14 +9,14 @@ alias (``wikipedia_search``) appears and behaves identically.
 
 from __future__ import annotations
 
-import types
 import sys
-import pytest
+import types
 
+import pytest
 from chuk_mcp_runtime.common.mcp_tool_decorator import (
     TOOLS_REGISTRY,
-    mcp_tool,
     initialize_tool_registry,
+    mcp_tool,
 )
 from chuk_mcp_runtime.common.openai_compatibility import (
     initialize_openai_compatibility,
@@ -55,13 +55,9 @@ def _stub_toolregistryprovider(monkeypatch):
         return FakeRegistry()
 
     fake_mod = types.ModuleType("chuk_tool_processor.registry")
-    fake_mod.ToolRegistryProvider = type(
-        "TP", (), {"get_registry": staticmethod(get_registry)}
-    )
+    fake_mod.ToolRegistryProvider = type("TP", (), {"get_registry": staticmethod(get_registry)})
 
-    sys.modules.setdefault(
-        "chuk_tool_processor", types.ModuleType("chuk_tool_processor")
-    )
+    sys.modules.setdefault("chuk_tool_processor", types.ModuleType("chuk_tool_processor"))
     sys.modules["chuk_tool_processor.registry"] = fake_mod
     monkeypatch.setitem(
         sys.modules["chuk_mcp_runtime.common.openai_compatibility"].__dict__,

@@ -22,12 +22,12 @@ from chuk_mcp_runtime.session.session_bridge import (
     allocate_session,
     get_session_manager,
 )
-from chuk_mcp_runtime.tools import register_artifacts_tools, get_artifact_tools
+from chuk_mcp_runtime.tools import get_artifact_tools, register_artifacts_tools
 from chuk_mcp_runtime.tools.artifacts_tools import (
-    write_file,
+    get_storage_stats,
     list_session_files,
     read_file,
-    get_storage_stats,
+    write_file,
 )
 
 # ───────────────────────── configuration helper ─────────────────────────

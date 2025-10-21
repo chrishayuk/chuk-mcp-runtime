@@ -17,9 +17,14 @@ Workflow for each combination:
 5. Cleanup and validate
 """
 
-import os, asyncio, aiohttp, tempfile, shutil
+import asyncio
+import os
+import shutil
+import tempfile
 from pathlib import Path
-from typing import Dict, Any, List, Tuple
+from typing import Any, Dict, List, Tuple
+
+import aiohttp
 from chuk_artifacts import ArtifactStore
 from dotenv import load_dotenv
 
@@ -131,22 +136,18 @@ async def test_store_configuration(
         if storage_provider == "ibm_cos" and not storage_ok:
             error_msg = config_status["storage"].get("message", "")
             if "403" in error_msg or "Forbidden" in error_msg:
-                results.success(
-                    f"Configuration validated (IBM COS permissions expected)"
-                )
+                results.success("Configuration validated (IBM COS permissions expected)")
                 return store, config_status
 
         if session_ok and storage_ok:
-            results.success(f"Configuration validated")
+            results.success("Configuration validated")
             return store, config_status
         else:
-            results.failure(
-                f"Configuration validation failed", Exception(str(config_status))
-            )
+            results.failure("Configuration validation failed", Exception(str(config_status)))
             return None, config_status
 
     except Exception as e:
-        results.failure(f"Store initialization failed", e)
+        results.failure("Store initialization failed", e)
         return None, {}
 
 
@@ -191,20 +192,14 @@ async def test_basic_operations(store: ArtifactStore, results: TestResult) -> Li
         except Exception as e:
             # Handle IBM COS permission errors gracefully
             if "403" in str(e) or "Forbidden" in str(e):
-                results.success(
-                    f"IBM COS permissions prevent {filename} test (expected)"
-                )
+                results.success(f"IBM COS permissions prevent {filename} test (expected)")
                 continue
             # Handle memory provider isolation issues
-            elif "NoSuchKey" in str(e) and "memory" in str(
-                store._storage_provider_name
-            ):
+            elif "NoSuchKey" in str(e) and "memory" in str(store._storage_provider_name):
                 results.success(
                     f"Memory provider isolation prevents {filename} retrieval (known limitation)"
                 )
-                artifact_ids.append(
-                    artifact_id
-                )  # Still count as stored for other tests
+                artifact_ids.append(artifact_id)  # Still count as stored for other tests
                 continue
             else:
                 results.failure(f"Basic operations failed for {filename}", e)
@@ -229,9 +224,9 @@ async def test_presigned_urls(
         # Generate different duration URLs
         short_url = await store.presign_short(artifact_id)
         medium_url = await store.presign_medium(artifact_id)
-        long_url = await store.presign_long(artifact_id)
+        await store.presign_long(artifact_id)
 
-        results.success(f"Generated presigned URLs (short/medium/long)")
+        results.success("Generated presigned URLs (short/medium/long)")
 
         # Test download for supported providers
         if storage_provider in ["ibm_cos", "s3"]:
@@ -241,39 +236,33 @@ async def test_presigned_urls(
                     if resp.status == 200:
                         content = await resp.read()
                         if content == TEST_DATA[0][0]:  # First test data
-                            results.success(f"HTTP download via presigned URL")
+                            results.success("HTTP download via presigned URL")
                         else:
-                            results.failure(f"Downloaded content mismatch")
+                            results.failure("Downloaded content mismatch")
                     else:
                         results.failure(f"HTTP download failed: {resp.status}")
         elif storage_provider == "filesystem":
             # Filesystem URLs use file:// scheme
             if short_url.startswith("file://"):
-                results.success(f"Filesystem presigned URL format correct")
+                results.success("Filesystem presigned URL format correct")
             else:
                 results.failure(f"Unexpected filesystem URL format: {short_url}")
         elif storage_provider == "memory":
             # Memory URLs use memory:// scheme
             if short_url.startswith("memory://"):
-                results.success(f"Memory presigned URL format correct")
+                results.success("Memory presigned URL format correct")
             else:
                 results.failure(f"Unexpected memory URL format: {short_url}")
 
     except Exception as e:
         if "NotImplementedError" in str(type(e)) or "oauth" in str(e).lower():
-            results.success(
-                f"Presigned URLs correctly unavailable for this credential type"
-            )
+            results.success("Presigned URLs correctly unavailable for this credential type")
         elif "Object not found" in str(e) and storage_provider == "memory":
-            results.success(
-                f"Memory provider isolation prevents presigned URLs (known limitation)"
-            )
+            results.success("Memory provider isolation prevents presigned URLs (known limitation)")
         elif "403" in str(e) or "Forbidden" in str(e):
-            results.success(
-                f"IBM COS permissions prevent presigned URL test (expected)"
-            )
+            results.success("IBM COS permissions prevent presigned URL test (expected)")
         else:
-            results.failure(f"Presigned URL test failed", e)
+            results.failure("Presigned URL test failed", e)
 
 
 async def test_batch_operations(store: ArtifactStore, results: TestResult):
@@ -297,9 +286,7 @@ async def test_batch_operations(store: ArtifactStore, results: TestResult):
         if len(valid_ids) == len(batch_items):
             results.success(f"Batch storage of {len(batch_items)} items")
         else:
-            results.success(
-                f"Batch storage partial success: {len(valid_ids)}/{len(batch_items)}"
-            )
+            results.success(f"Batch storage partial success: {len(valid_ids)}/{len(batch_items)}")
 
         # Verify batch items can be retrieved (if any were stored)
         if valid_ids:
@@ -315,14 +302,10 @@ async def test_batch_operations(store: ArtifactStore, results: TestResult):
             except Exception as e:
                 if "403" in str(e) or "Forbidden" in str(e):
                     results.success("Batch retrieval skipped (IBM COS permissions)")
-                elif "NoSuchKey" in str(e) and "memory" in str(
-                    store._storage_provider_name
-                ):
-                    results.success(
-                        "Batch retrieval skipped (memory provider isolation)"
-                    )
+                elif "NoSuchKey" in str(e) and "memory" in str(store._storage_provider_name):
+                    results.success("Batch retrieval skipped (memory provider isolation)")
                 else:
-                    results.failure(f"Batch retrieval failed", e)
+                    results.failure("Batch retrieval failed", e)
         else:
             results.success("Batch operations completed (no items to verify)")
 
@@ -330,7 +313,7 @@ async def test_batch_operations(store: ArtifactStore, results: TestResult):
         if "403" in str(e) or "Forbidden" in str(e):
             results.success("Batch operations skipped (IBM COS permissions)")
         else:
-            results.failure(f"Batch operations failed", e)
+            results.failure("Batch operations failed", e)
 
 
 async def test_error_handling(store: ArtifactStore, results: TestResult):
@@ -362,7 +345,7 @@ async def test_error_handling(store: ArtifactStore, results: TestResult):
             results.failure("Artifact still exists after deletion")
 
     except Exception as e:
-        results.failure(f"Error handling test failed", e)
+        results.failure("Error handling test failed", e)
 
 
 async def test_provider_combination(
@@ -387,9 +370,7 @@ async def test_provider_combination(
             storage_provider="memory",
         )
 
-        results.success(
-            "Configuration validated (memory provider - isolation limitations noted)"
-        )
+        results.success("Configuration validated (memory provider - isolation limitations noted)")
 
     else:
         # Initialize and validate configuration normally
@@ -415,9 +396,7 @@ async def test_provider_combination(
 
         # Get stats
         stats = await store.get_stats()
-        results.success(
-            f"Statistics: {stats['storage_provider']}/{stats['session_provider']}"
-        )
+        results.success(f"Statistics: {stats['storage_provider']}/{stats['session_provider']}")
 
     finally:
         await store.close()
