@@ -69,7 +69,7 @@ def configure_session_tools(config: Dict[str, Any]) -> None:
 
     # Check if session tools are enabled globally
     if not _session_tools_config.get("enabled", False):
-        logger.info(
+        logger.debug(
             "Session tools disabled in configuration - use 'session_tools.enabled: true' to enable"
         )
         return
@@ -87,11 +87,11 @@ def configure_session_tools(config: Dict[str, Any]) -> None:
             )
 
     if _enabled_session_tools:
-        logger.info(
+        logger.debug(
             f"Configured {len(_enabled_session_tools)} session tools: {', '.join(sorted(_enabled_session_tools))}"
         )
     else:
-        logger.info("No session tools enabled - all tools require explicit configuration")
+        logger.debug("No session tools enabled - all tools require explicit configuration")
 
 
 def is_session_tool_enabled(tool_name: str) -> bool:
@@ -334,7 +334,7 @@ async def register_session_tools(config: Dict[str, Any] | None = None) -> bool:
     sess_cfg = (config or {}).get("session_tools", {})
     if not sess_cfg.get("enabled", False):
         prune_all()
-        logger.info(
+        logger.debug(
             "Session tools disabled - use 'session_tools.enabled: true' in config to enable"
         )
         return False
@@ -345,7 +345,7 @@ async def register_session_tools(config: Dict[str, Any] | None = None) -> bool:
     }
     if not enabled_tools:
         prune_all()
-        logger.info(
+        logger.debug(
             "Session tools block present but no individual tools enabled - use 'session_tools.tools.<tool_name>.enabled: true' to enable specific tools"
         )
         return False
@@ -374,7 +374,7 @@ async def register_session_tools(config: Dict[str, Any] | None = None) -> bool:
             logger.error("Failed to register session tool %s: %s", name, e)
 
     if registered > 0:
-        logger.info(
+        logger.debug(
             "Registered %d session tool(s): %s",
             registered,
             ", ".join(sorted(enabled_tools)),

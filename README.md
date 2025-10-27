@@ -141,6 +141,7 @@ uv pip install tzdata
 - [Creating Local Tools](#creating-local-mcp-tools)
 - [MCP Resources](#mcp-resources)
 - [Progress Notifications](#progress-notifications)
+- [Request Context & Headers](#request-context--headers)
 - [Built-in Tools](#built-in-tool-categories)
 - [Security Model](#security-model)
 - [Environment Variables](#environment-variables)
@@ -1386,6 +1387,377 @@ This demonstrates:
 - Batch processing with progress
 - Percentage-based progress (file download simulation)
 - Visual progress bars in the terminal
+
+## Request Context & Headers
+
+**Request context** provides tools with access to request metadata including session, progress token, request headers, and other contextual information from the MCP protocol layer.
+
+### What is Request Context?
+
+The `MCPRequestContext` object is automatically created for each tool invocation and contains:
+
+- **Session** - The MCP session object for progress notifications
+- **Progress Token** - Client-provided token for progress updates
+- **Metadata** - Additional request metadata (headers, user info, etc.)
+
+Request context is managed automatically by the runtime and made available to tools through context variables.
+
+### Accessing Request Context in Tools
+
+```python
+from chuk_mcp_runtime.common.mcp_tool_decorator import mcp_tool
+from chuk_mcp_runtime.server.request_context import (
+    get_request_context,
+    send_progress
+)
+
+@mcp_tool(name="context_aware_tool")
+async def context_aware_tool(data: str) -> dict:
+    """Tool that accesses request context."""
+
+    # Get the current request context
+    ctx = get_request_context()
+
+    if ctx:
+        # Access session information
+        has_session = ctx.session is not None
+
+        # Access progress token
+        can_report_progress = ctx.progress_token is not None
+
+        # Access request metadata
+        meta = ctx.meta
+
+        # Send progress if token available
+        if can_report_progress:
+            await ctx.send_progress(
+                progress=0.5,
+                total=1.0,
+                message="Halfway done"
+            )
+
+    return {"processed": data, "has_context": ctx is not None}
+```
+
+### Request Headers API
+
+Tools can access HTTP headers from incoming requests to implement custom authentication, logging, or feature detection:
+
+```python
+from chuk_mcp_runtime.common.mcp_tool_decorator import mcp_tool
+from chuk_mcp_runtime.server.request_context import get_request_context
+
+@mcp_tool(name="header_aware_tool")
+async def header_aware_tool(action: str) -> dict:
+    """Tool that reads request headers."""
+
+    ctx = get_request_context()
+    if not ctx:
+        return {"error": "No request context available"}
+
+    # Get all request headers (lowercase keys)
+    headers = ctx.get_headers()
+
+    # Access specific headers
+    user_agent = headers.get("user-agent", "unknown")
+    content_type = headers.get("content-type", "application/json")
+    authorization = headers.get("authorization", "")
+
+    # Custom headers (if client sends them)
+    request_id = headers.get("x-request-id")
+    client_version = headers.get("x-client-version")
+
+    return {
+        "action": action,
+        "user_agent": user_agent,
+        "content_type": content_type,
+        "has_auth": bool(authorization),
+        "request_id": request_id,
+        "client_version": client_version
+    }
+```
+
+### Context Manager for Manual Context Setup
+
+For advanced scenarios (testing, custom integrations), you can manually manage request context:
+
+```python
+from chuk_mcp_runtime.server.request_context import RequestContext
+from unittest.mock import AsyncMock
+
+async def test_tool_with_context():
+    """Example: Testing a tool with mocked context."""
+
+    # Create a mock session
+    mock_session = AsyncMock()
+    mock_session.send_progress_notification = AsyncMock()
+
+    # Use context manager to set up request context
+    async with RequestContext(
+        session=mock_session,
+        progress_token="test-token-123",
+        meta={"user_id": "alice", "headers": {"user-agent": "test-client"}}
+    ) as ctx:
+        # Tools called here have access to the context
+        result = await my_tool("input")
+
+        # Verify progress was sent
+        assert mock_session.send_progress_notification.called
+```
+
+### Request Context Properties
+
+| Property | Type | Description | Example |
+|----------|------|-------------|---------|
+| `session` | `Any` | MCP session object | Used for `send_progress()` |
+| `progress_token` | `str \| int \| None` | Client progress token | `"progress-123"` |
+| `meta` | `Any` | Request metadata | `{"user_id": "alice"}` |
+
+### Getting Headers from Different Sources
+
+The `get_headers()` method checks multiple sources in order:
+
+1. **Meta attribute** - `ctx.meta.headers`
+2. **Meta dict** - `ctx.meta["headers"]`
+3. **Context variable** - Global headers from `set_request_headers()`
+4. **Empty dict** - Returns `{}` if no headers available
+
+```python
+# Example: Headers from meta attribute
+meta = Mock()
+meta.headers = {"authorization": "Bearer token123"}
+ctx = MCPRequestContext(meta=meta)
+headers = ctx.get_headers()  # {"authorization": "Bearer token123"}
+
+# Example: Headers from meta dict
+meta = {"headers": {"content-type": "application/json"}}
+ctx = MCPRequestContext(meta=meta)
+headers = ctx.get_headers()  # {"content-type": "application/json"}
+
+# Example: No headers available
+ctx = MCPRequestContext()
+headers = ctx.get_headers()  # {}
+```
+
+### Common Use Cases
+
+**1. Custom Authentication/Authorization:**
+```python
+@mcp_tool(name="protected_action")
+async def protected_action(resource: str) -> dict:
+    """Tool with custom authorization check."""
+    ctx = get_request_context()
+    headers = ctx.get_headers()
+
+    # Check custom auth header
+    api_key = headers.get("x-api-key")
+    if not api_key or not validate_api_key(api_key):
+        raise PermissionError("Invalid API key")
+
+    # Perform protected action
+    return {"resource": resource, "status": "processed"}
+```
+
+**2. Request Logging/Tracing:**
+```python
+@mcp_tool(name="traced_operation")
+async def traced_operation(data: str) -> dict:
+    """Tool that logs request metadata."""
+    ctx = get_request_context()
+    headers = ctx.get_headers()
+
+    # Extract tracing headers
+    trace_id = headers.get("x-trace-id", generate_trace_id())
+    span_id = headers.get("x-span-id", generate_span_id())
+
+    logger.info(f"Operation started: trace={trace_id}, span={span_id}")
+
+    # Do work...
+    result = process_data(data)
+
+    logger.info(f"Operation completed: trace={trace_id}")
+    return {"result": result, "trace_id": trace_id}
+```
+
+**3. Feature Detection:**
+```python
+@mcp_tool(name="adaptive_tool")
+async def adaptive_tool(query: str) -> dict:
+    """Tool that adapts based on client capabilities."""
+    ctx = get_request_context()
+    headers = ctx.get_headers()
+
+    # Check client version for feature support
+    client_version = headers.get("x-client-version", "1.0")
+    user_agent = headers.get("user-agent", "")
+
+    # Enable advanced features for newer clients
+    use_streaming = version_gte(client_version, "2.0")
+    use_markdown = "claude" in user_agent.lower()
+
+    result = process_query(query, streaming=use_streaming)
+
+    if use_markdown:
+        result["formatted"] = format_as_markdown(result)
+
+    return result
+```
+
+**4. Session Context with Progress:**
+```python
+@mcp_tool(name="multi_step_task")
+async def multi_step_task(items: list[str]) -> dict:
+    """Tool using both session and progress features."""
+    ctx = get_request_context()
+
+    if not ctx:
+        # Fallback when no context (CLI usage, tests)
+        return {"items": items, "mode": "synchronous"}
+
+    results = []
+    total = len(items)
+
+    for i, item in enumerate(items, 1):
+        # Report progress if client supports it
+        if ctx.progress_token:
+            await ctx.send_progress(
+                progress=i,
+                total=total,
+                message=f"Processing {item}"
+            )
+
+        result = await process_item(item)
+        results.append(result)
+
+    return {"results": results, "mode": "progressive"}
+```
+
+### Global Helper Functions
+
+For convenience, the module provides global helper functions:
+
+```python
+from chuk_mcp_runtime.server.request_context import (
+    get_request_context,
+    set_request_context,
+    get_request_headers,
+    set_request_headers,
+    send_progress
+)
+
+# Get current context
+ctx = get_request_context()
+
+# Get headers directly
+headers = get_request_headers()  # Returns None if not set
+
+# Send progress (uses current context automatically)
+await send_progress(progress=50, total=100, message="Halfway")
+```
+
+### Testing with Request Context
+
+```python
+import pytest
+from unittest.mock import AsyncMock
+from chuk_mcp_runtime.server.request_context import (
+    RequestContext,
+    set_request_context,
+    MCPRequestContext
+)
+
+@pytest.fixture
+def mock_session():
+    """Fixture providing a mock session."""
+    session = AsyncMock()
+    session.send_progress_notification = AsyncMock()
+    return session
+
+@pytest.mark.asyncio
+async def test_tool_with_progress(mock_session):
+    """Test tool progress reporting."""
+    ctx = MCPRequestContext(
+        session=mock_session,
+        progress_token="test-123"
+    )
+    set_request_context(ctx)
+
+    # Call your tool
+    result = await my_progressive_tool(["a", "b", "c"])
+
+    # Verify progress was reported
+    assert mock_session.send_progress_notification.call_count == 3
+
+    # Clean up
+    set_request_context(None)
+
+@pytest.mark.asyncio
+async def test_tool_with_headers(mock_session):
+    """Test tool header access."""
+    async with RequestContext(
+        session=mock_session,
+        meta={"headers": {"x-api-key": "test-key"}}
+    ):
+        result = await my_authenticated_tool("data")
+        assert result["authenticated"] is True
+```
+
+### Security Considerations
+
+**Header Validation:**
+```python
+# ✅ GOOD: Validate headers before use
+@mcp_tool(name="secure_tool")
+async def secure_tool(data: str) -> dict:
+    ctx = get_request_context()
+    headers = ctx.get_headers()
+
+    # Validate expected headers
+    api_key = headers.get("x-api-key", "").strip()
+    if not api_key or len(api_key) < 32:
+        raise ValueError("Invalid API key format")
+
+    # Sanitize user-controlled values
+    user_agent = headers.get("user-agent", "unknown")[:200]
+
+    return process_with_auth(data, api_key)
+
+# ❌ BAD: Trust headers without validation
+@mcp_tool(name="insecure_tool")
+async def insecure_tool(data: str) -> dict:
+    ctx = get_request_context()
+    headers = ctx.get_headers()
+
+    # Dangerous: using header value directly in SQL/commands
+    user_id = headers.get("x-user-id")
+    db.execute(f"SELECT * FROM users WHERE id = {user_id}")  # SQL injection!
+```
+
+**Session Access:**
+```python
+# ✅ GOOD: Check context availability
+@mcp_tool(name="safe_tool")
+async def safe_tool(data: str) -> dict:
+    ctx = get_request_context()
+
+    # Always check if context is available
+    if not ctx or not ctx.session:
+        # Fallback behavior for CLI/tests
+        return {"data": data, "progress": "unavailable"}
+
+    # Safe to use session features
+    await ctx.send_progress(0.5, 1.0, "Processing")
+    return {"data": data, "progress": "reported"}
+```
+
+### Best Practices
+
+1. **Always check context availability** - Context may be `None` in tests or CLI usage
+2. **Validate headers** - Don't trust client-provided headers without validation
+3. **Use progress tokens** - Check `ctx.progress_token` before calling `send_progress()`
+4. **Sanitize header values** - Limit lengths, escape special characters
+5. **Handle missing headers gracefully** - Provide sensible defaults
+6. **Don't store sensitive data** - Headers may be logged or cached
 
 ## Running a Combined Local + Proxy Server
 

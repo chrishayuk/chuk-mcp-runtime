@@ -66,7 +66,7 @@ class MCPSessionManager:
             sandbox_id=self.sandbox_id, default_ttl_hours=default_ttl_hours
         )
 
-        logger.info(f"Initialized MCPSessionManager for sandbox: {self.sandbox_id}")
+        logger.debug(f"Initialized MCPSessionManager for sandbox: {self.sandbox_id}")
 
     def _infer_sandbox_id(self) -> str:
         """Infer sandbox ID from environment or generate one."""
@@ -167,7 +167,7 @@ class MCPSessionManager:
         )
 
         self.set_current_session(session_id, user_id)
-        logger.info(f"Auto-created session {session_id} for user {user_id}")
+        logger.debug(f"Auto-created session {session_id} for user {user_id}")
         return session_id
 
     async def _maybe_extend_session(self, session_id: str):

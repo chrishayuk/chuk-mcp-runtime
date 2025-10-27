@@ -51,11 +51,19 @@ def configure_logging(config: Dict[str, Any] = None) -> None:
 
     # Set library loggers to higher level to reduce noise
     if log_config.get("quiet_libraries", True):
-        for lib in ["urllib3", "requests", "asyncio"]:
+        for lib in ["urllib3", "requests", "asyncio", "httpx"]:
             logging.getLogger(lib).setLevel(logging.WARNING)
 
     # Quiet the specific library logging for mcp.server.lowlevel.server
     logging.getLogger("mcp.server.lowlevel.server").setLevel(logging.WARNING)
+
+    # Quiet chuk runtime component initialization logs
+    for component in [
+        "chuk_sessions.session_manager",
+        "chuk_artifacts.store",
+        "chuk_mcp_runtime.server",
+    ]:
+        logging.getLogger(component).setLevel(logging.WARNING)
 
     # NEW: Configure specific loggers from config
     logger_overrides = log_config.get("loggers", {})

@@ -19,6 +19,7 @@ logger = get_logger("chuk_mcp_runtime.request_context")
 _request_context: ContextVar[Optional["MCPRequestContext"]] = ContextVar(
     "request_context", default=None
 )
+_request_headers: ContextVar[Optional[dict[str, str]]] = ContextVar("request_headers", default=None)
 
 
 # ───────────────────────── Request Context ─────────────────────────────
@@ -47,6 +48,26 @@ class MCPRequestContext:
         self.session = session
         self.progress_token = progress_token
         self.meta = meta
+
+    def get_headers(self) -> dict[str, str]:
+        """
+        Get HTTP headers from the request context.
+
+        Returns:
+            Dict of HTTP headers (lowercase keys) or empty dict if not available
+        """
+        # First try to get from meta
+        if self.meta and hasattr(self.meta, "headers"):
+            return getattr(self.meta, "headers", {})
+        if self.meta and isinstance(self.meta, dict) and "headers" in self.meta:
+            return self.meta["headers"]
+
+        # Fall back to ContextVar
+        headers = _request_headers.get()
+        if headers:
+            return headers
+
+        return {}
 
     async def send_progress(
         self,
@@ -118,6 +139,29 @@ def set_request_context(context: Optional[MCPRequestContext]) -> None:
     _request_context.set(context)
 
 
+def get_request_headers() -> Optional[dict[str, str]]:
+    """
+    Get the current request headers.
+
+    Returns:
+        The current request headers or None if not available.
+    """
+    return _request_headers.get()
+
+
+def set_request_headers(headers: Optional[dict[str, str]]) -> None:
+    """
+    Set the current request headers.
+
+    This is typically called by the server infrastructure and should not
+    be called directly by tool implementations.
+
+    Args:
+        headers: The request headers to set (lowercase keys)
+    """
+    _request_headers.set(headers)
+
+
 async def send_progress(
     progress: float,
     total: float | None = None,
@@ -150,7 +194,8 @@ async def send_progress(
     """
     ctx = get_request_context()
     if not ctx:
-        logger.warning("send_progress() called outside of request context - ignoring")
+        # Silently ignore when called outside MCP request context
+        # (e.g., when running tools directly from command line)
         return
 
     await ctx.send_progress(progress=progress, total=total, message=message)

@@ -85,7 +85,7 @@ async def run_runtime_async(
 
     # 2) Native session management initialization
     session_manager = create_mcp_session_manager(cfg)
-    logger.info("Native session manager initialized for sandbox: %s", session_manager.sandbox_id)
+    logger.debug("Native session manager initialized for sandbox: %s", session_manager.sandbox_id)
 
     # 3) Optional component bootstrap
     if bootstrap_components and not os.getenv("NO_BOOTSTRAP"):
@@ -142,10 +142,10 @@ async def run_runtime_async(
         for n in TOOLS_REGISTRY
         if any(kw in n for kw in ("file", "upload", "write", "read", "list"))
     )
-    logger.info("Tools in registry: %d total, %d artifact-related", tool_total, art_related)
+    logger.debug("Tools in registry: %d total, %d artifact-related", tool_total, art_related)
 
     session_stats = session_manager.get_cache_stats()
-    logger.info("Session manager stats: %s", session_stats)
+    logger.debug("Session manager stats: %s", session_stats)
 
     # 11) Register additional artifact tools
     for name, fn in _iter_tools(get_artifact_tools()):
@@ -181,7 +181,7 @@ async def run_runtime_async(
     finally:
         # Cleanup proxy layer
         if proxy_mgr:
-            logger.info("Stopping proxy layer")
+            logger.debug("Stopping proxy layer")
             await proxy_mgr.stop_servers()
 
 

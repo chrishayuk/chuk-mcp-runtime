@@ -1,4 +1,4 @@
-.PHONY: clean clean-pyc clean-build clean-test clean-all test test-cov coverage coverage-html run build publish help install dev-install
+.PHONY: clean clean-pyc clean-build clean-test clean-all test test-cov coverage coverage-html run build publish help install dev-install security
 
 # Colors for output
 BLUE := \033[1;34m
@@ -25,6 +25,7 @@ help:
 	@echo "  lint          - Check code quality"
 	@echo "  format        - Fix code formatting"
 	@echo "  typecheck     - Run type checking"
+	@echo "  security      - Run security checks with bandit"
 	@echo "  check         - Run all checks (lint, typecheck, test)"
 
 # Basic clean - Python bytecode and common artifacts
@@ -192,6 +193,17 @@ typecheck:
 		mypy src; \
 	else \
 		echo "MyPy not found. Install with: pip install mypy"; \
+	fi
+
+# Security checks
+security:
+	@echo "Running security checks..."
+	@if command -v uv >/dev/null 2>&1; then \
+		uv run bandit -r src -f screen; \
+	elif command -v bandit >/dev/null 2>&1; then \
+		bandit -r src -f screen; \
+	else \
+		echo "Bandit not found. Install with: pip install bandit"; \
 	fi
 
 # Run all checks

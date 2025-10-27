@@ -9,8 +9,10 @@ from chuk_mcp_runtime.server.request_context import (
     MCPRequestContext,
     RequestContext,
     get_request_context,
+    get_request_headers,
     send_progress,
     set_request_context,
+    set_request_headers,
 )
 
 
@@ -225,3 +227,59 @@ async def test_progress_step_counting(mock_session):
     assert last_call.kwargs["progress"] == 5
     assert last_call.kwargs["total"] == 5
     assert last_call.kwargs["message"] == "Step 5"
+
+
+def test_get_headers_from_meta_attribute():
+    """Test get_headers() with meta having headers attribute."""
+    meta = Mock()
+    meta.headers = {"authorization": "Bearer token123", "user-agent": "test-client"}
+
+    ctx = MCPRequestContext(meta=meta)
+    headers = ctx.get_headers()
+
+    assert headers == {"authorization": "Bearer token123", "user-agent": "test-client"}
+
+
+def test_get_headers_from_meta_dict():
+    """Test get_headers() with meta being a dict containing headers."""
+    meta = {"headers": {"content-type": "application/json", "x-custom": "value"}}
+
+    ctx = MCPRequestContext(meta=meta)
+    headers = ctx.get_headers()
+
+    assert headers == {"content-type": "application/json", "x-custom": "value"}
+
+
+def test_get_headers_from_context_var():
+    """Test get_headers() falling back to ContextVar."""
+    # Set headers in ContextVar
+    set_request_headers({"x-request-id": "12345", "accept": "application/json"})
+
+    ctx = MCPRequestContext()
+    headers = ctx.get_headers()
+
+    assert headers == {"x-request-id": "12345", "accept": "application/json"}
+
+    # Clean up
+    set_request_headers(None)
+
+
+def test_get_headers_empty_when_none_available():
+    """Test get_headers() returns empty dict when no headers available."""
+    ctx = MCPRequestContext()
+    headers = ctx.get_headers()
+
+    assert headers == {}
+
+
+def test_get_set_request_headers():
+    """Test getting and setting request headers."""
+    assert get_request_headers() is None
+
+    headers = {"authorization": "Bearer token", "content-type": "application/json"}
+    set_request_headers(headers)
+
+    assert get_request_headers() == headers
+
+    set_request_headers(None)
+    assert get_request_headers() is None

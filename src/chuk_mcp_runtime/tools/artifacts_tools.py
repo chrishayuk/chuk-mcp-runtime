@@ -72,7 +72,7 @@ def configure_artifacts_tools(config: Dict[str, Any]) -> None:
 
     # Check if artifacts tools are enabled globally
     if not _artifacts_config.get("enabled", False):
-        logger.info(
+        logger.debug(
             "Artifact tools disabled in configuration - use 'artifacts.enabled: true' to enable"
         )
         return
@@ -92,11 +92,11 @@ def configure_artifacts_tools(config: Dict[str, Any]) -> None:
 
     # Log the results
     if _enabled_tools:
-        logger.info(
+        logger.debug(
             f"Configured {len(_enabled_tools)} artifact tools: {', '.join(sorted(_enabled_tools))}"
         )
     else:
-        logger.info("No artifact tools enabled - all tools require explicit configuration")
+        logger.debug("No artifact tools enabled - all tools require explicit configuration")
 
 
 def is_tool_enabled(tool_name: str) -> bool:
@@ -133,7 +133,7 @@ async def get_artifact_store() -> ArtifactStore:
             bucket=bucket,
         )
 
-        logger.info(f"Created artifact store: {storage_provider}/{session_provider} -> {bucket}")
+        logger.debug(f"Created artifact store: {storage_provider}/{session_provider} -> {bucket}")
 
     return _artifact_store
 
@@ -700,14 +700,14 @@ async def register_artifacts_tools(config: Dict[str, Any] | None = None) -> bool
     if not art_cfg.get("enabled", False):
         for t in TOOL_FUNCTIONS:
             TOOLS_REGISTRY.pop(t, None)
-        logger.info("Artifacts disabled - use 'artifacts.enabled: true' in config to enable")
+        logger.debug("Artifacts disabled - use 'artifacts.enabled: true' in config to enable")
         return False
 
     enabled_helpers = {n for n, tc in art_cfg.get("tools", {}).items() if tc.get("enabled", False)}
     if not enabled_helpers:
         for t in TOOL_FUNCTIONS:
             TOOLS_REGISTRY.pop(t, None)
-        logger.info(
+        logger.debug(
             "All artifact tools disabled individually - use 'artifacts.tools.<tool_name>.enabled: true' to enable specific tools"
         )
         return False
@@ -741,7 +741,7 @@ async def register_artifacts_tools(config: Dict[str, Any] | None = None) -> bool
             logger.error("Failed to register artifact tool %s: %s", name, e)
 
     if registered > 0:
-        logger.info(
+        logger.debug(
             "Registered %d artifact tool(s): %s",
             registered,
             ", ".join(sorted(enabled_helpers)),

@@ -68,6 +68,7 @@ from chuk_mcp_runtime.server.logging_config import get_logger
 from chuk_mcp_runtime.server.request_context import (
     MCPRequestContext,
     set_request_context,
+    set_request_headers,
 )
 from chuk_mcp_runtime.session.native_session_management import (
     MCPSessionManager,
@@ -165,13 +166,16 @@ class AuthMiddleware:
         path: str = scope["path"]
         method: str = scope["method"]
 
-        # Health check or “auth disabled” → no checks.
+        # --------------------  Extract headers  --------------------
+        headers = {k.decode().lower(): v.decode() for k, v in scope["headers"]}
+        scope["headers_dict"] = headers  # Always store headers for request context
+
+        # Health check or "auth disabled" → no checks.
         if (path == self.health_path and method == "GET") or self.auth != "bearer":
             await self.app(scope, receive, send)
             return
 
         # --------------------  Extract token  --------------------
-        headers = {k.decode().lower(): v.decode() for k, v in scope["headers"]}
         token: Optional[str] = None
 
         # 1)  Authorization: Bearer <token>
@@ -371,7 +375,7 @@ class MCPServer:
         async def list_tools() -> List[Tool]:
             """List available tools with robust error handling."""
             try:
-                self.logger.info("list_tools called - %d tools total", len(self.tools_registry))
+                self.logger.debug("list_tools called - %d tools total", len(self.tools_registry))
 
                 tools = []
                 for tool_name, func in self.tools_registry.items():
@@ -396,7 +400,7 @@ class MCPServer:
                         self.logger.error("Error processing tool %s: %s", tool_name, e)
                         continue
 
-                self.logger.info("Returning %d valid tools", len(tools))
+                self.logger.debug("Returning %d valid tools", len(tools))
                 return tools
 
             except Exception as e:
@@ -417,7 +421,7 @@ class MCPServer:
                         arguments = parse_tool_arguments(arguments)
 
                         if arguments != original_args:
-                            self.logger.info(
+                            self.logger.debug(
                                 "Fixed concatenated JSON arguments for '%s': %s -> %s",
                                 name,
                                 original_args,
@@ -629,7 +633,7 @@ class MCPServer:
                     if not self.artifact_store:
                         self.logger.debug("Artifact store not initialized")
 
-            self.logger.info("Listing %d total resources", len(all_resources))
+            self.logger.debug("Listing %d total resources", len(all_resources))
             return all_resources
 
         # ----------------------------- read_resource ----------------------------- #
@@ -747,6 +751,10 @@ class MCPServer:
             transport = SseServerTransport(msg_path)
 
             async def _handle_sse(request: Request):
+                # Extract and store headers for tools to access
+                headers_dict = request.scope.get("headers_dict", {})
+                set_request_headers(headers_dict)
+
                 async with transport.connect_sse(
                     request.scope, request.receive, request._send
                 ) as streams:
@@ -804,6 +812,10 @@ class MCPServer:
             async def handle_streamable_http(
                 scope: Scope, receive: Receive, send: Send
             ) -> Response:
+                # Extract and store headers for tools to access
+                headers_dict = scope.get("headers_dict", {})
+                set_request_headers(headers_dict)
+
                 await session_manager.handle_request(scope, receive, send)
                 return Response()
 
