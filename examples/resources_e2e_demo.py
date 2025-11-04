@@ -284,32 +284,58 @@ def main():
         }
 
         response = send_and_receive(process, write_msg, expected_id=2)
+        session_id = None
         if "result" in response:
-            print(f"   ✅ {response['result']}")
+            # Extract session_id from response
+            result = response["result"]
+            if "content" in result and len(result["content"]) > 0:
+                text = result["content"][0].get("text", "")
+                try:
+                    inner = json.loads(text)
+                    session_id = inner.get("session_id")
+                    print(f"   ✅ Created (session: {session_id})")
+                except json.JSONDecodeError:
+                    print(f"   ✅ {response['result']}")
+            else:
+                print(f"   ✅ {response['result']}")
         else:
             print(f"   ❌ Failed: {response.get('error')}")
         print()
 
         # Create a JSON file
         print("📊 Creating data.json via write_file tool...")
+        data_arguments = {
+            "filename": "data.json",
+            "content": '{"sales": [100, 120, 150]}',
+            "mime": "application/json",
+            "summary": "Sales data",
+        }
+        # Add session_id if we captured it
+        if session_id:
+            data_arguments["session_id"] = session_id
+
         write_msg2 = {
             "jsonrpc": "2.0",
             "id": 3,
             "method": "tools/call",
             "params": {
                 "name": "write_file",
-                "arguments": {
-                    "filename": "data.json",
-                    "content": '{"sales": [100, 120, 150]}',
-                    "mime": "application/json",
-                    "summary": "Sales data",
-                },
+                "arguments": data_arguments,
             },
         }
 
         response = send_and_receive(process, write_msg2, expected_id=3)
         if "result" in response:
-            print(f"   ✅ {response['result']}")
+            result = response["result"]
+            if "content" in result and len(result["content"]) > 0:
+                text = result["content"][0].get("text", "")
+                try:
+                    inner = json.loads(text)
+                    print(f"   ✅ Created")
+                except json.JSONDecodeError:
+                    print(f"   ✅ {response['result']}")
+            else:
+                print(f"   ✅ {response['result']}")
         else:
             print(f"   ❌ Failed: {response.get('error')}")
         print()

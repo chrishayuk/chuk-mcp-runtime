@@ -60,6 +60,7 @@ class MCPSessionManager:
         self.sandbox_id = sandbox_id or self._infer_sandbox_id()
         self.default_ttl_hours = default_ttl_hours
         self.auto_extend_threshold = auto_extend_threshold
+        self._last_session: Optional[str] = None  # Track last used session for auto-reuse
 
         # Create the underlying SessionManager
         self._session_manager = SessionManager(
@@ -154,7 +155,14 @@ class MCPSessionManager:
         if current and await self.validate_session(current):
             # Check if session needs extension
             await self._maybe_extend_session(current)
+            self._last_session = current
             return current
+
+        # Try to reuse last session if still valid (for stdio requests without context vars)
+        if self._last_session and await self.validate_session(self._last_session):
+            logger.debug(f"Reusing last session {self._last_session}")
+            self.set_current_session(self._last_session, user_id)
+            return self._last_session
 
         # Create new session
         session_id = await self.create_session(
@@ -167,6 +175,7 @@ class MCPSessionManager:
         )
 
         self.set_current_session(session_id, user_id)
+        self._last_session = session_id
         logger.debug(f"Auto-created session {session_id} for user {user_id}")
         return session_id
 
@@ -229,11 +238,13 @@ class SessionContext:
         self.auto_create = auto_create
         self.previous_session: str | None = None
         self.previous_user: str | None = None
+        self.created_new_session = False  # Track if we created a new session
 
     async def __aenter__(self) -> str:
         # Save previous context
         self.previous_session = self.session_manager.get_current_session()
         self.previous_user = self.session_manager.get_current_user()
+        logger.debug(f"[SessionContext.__aenter__] previous_session={self.previous_session}")
 
         # Set new context
         if self.session_id:
@@ -241,20 +252,39 @@ class SessionContext:
             if not await self.session_manager.validate_session(self.session_id):
                 raise SessionValidationError(f"Session {self.session_id} is invalid")
             self.session_manager.set_current_session(self.session_id, self.user_id)
+            logger.debug(f"[SessionContext.__aenter__] Using provided session {self.session_id}")
             return self.session_id
         elif self.auto_create:
             # Auto-create session
+            current_before = self.session_manager.get_current_session()
             session_id = await self.session_manager.auto_create_session_if_needed(self.user_id)
+            # Track if we created a new session (vs reusing existing)
+            self.created_new_session = current_before is None
+            logger.debug(
+                f"[SessionContext.__aenter__] Auto-created/reused session {session_id}, "
+                f"created_new={self.created_new_session}"
+            )
             return session_id
         else:
             raise SessionError("No session provided and auto_create=False")
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         # Restore previous context
-        if self.previous_session:
+        current = self.session_manager.get_current_session()
+        logger.debug(
+            f"[SessionContext.__aexit__] current={current}, previous={self.previous_session}, "
+            f"created_new={self.created_new_session}"
+        )
+
+        # Only restore/clear if we had a previous session (nested context)
+        # Otherwise, keep the current session for subsequent requests
+        if self.previous_session and self.previous_session != current:
+            # Nested context - restore the outer session
             self.session_manager.set_current_session(self.previous_session, self.previous_user)
+            logger.debug(f"[SessionContext.__aexit__] Restored previous session {self.previous_session}")
         else:
-            self.session_manager.clear_context()
+            # Top-level context - keep the session for next request
+            logger.debug(f"[SessionContext.__aexit__] Keeping current session {current}")
 
 
 # ───────────────────────── Tool Integration Helpers ─────────────────────

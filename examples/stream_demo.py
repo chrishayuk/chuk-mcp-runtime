@@ -10,11 +10,16 @@ This is the smallest possible end-to-end demo that:
    - obeys the JSON-RPC 2.0 shapes (`initialize`, `notifications/initialized`,
      `tools/call`)
    - handles the session-ID handshake required by SseServerTransport
+
+Note: You may see asyncio.CancelledError traces after [done] - these are
+      expected cleanup errors when forcefully terminating the server and can
+      be safely ignored.
 """
 
 import asyncio
 import contextlib
 import json
+import logging
 import os
 import re
 import socket
@@ -27,6 +32,11 @@ import httpx
 # ─────────────────────────────────────────────────────────────────────────────
 ROOT = os.path.dirname(os.path.dirname(__file__))
 sys.path.append(ROOT)
+
+# Configure logging to suppress expected cleanup errors
+logging.basicConfig(level=logging.WARNING)
+for logger_name in ["uvicorn", "uvicorn.error", "anyio", "starlette"]:
+    logging.getLogger(logger_name).setLevel(logging.CRITICAL)
 
 from chuk_mcp_runtime.common.mcp_tool_decorator import mcp_tool
 from chuk_mcp_runtime.server.server import MCPServer
@@ -67,7 +77,11 @@ async def wait_port(host: str, port: int, timeout: float = 10.0):
 # 3  ‒  Run the SSE MCP server in-process
 # ─────────────────────────────────────────────────────────────────────────────
 async def start_server():
-    cfg = {"server": {"type": "sse"}, "sse": {"host": "127.0.0.1", "port": 8111}}
+    cfg = {
+        "server": {"type": "sse"},
+        "sse": {"host": "127.0.0.1", "port": 8111},
+        "logging": {"level": "ERROR"},  # Suppress verbose server logs
+    }
     await MCPServer(cfg).serve()
 
 
@@ -220,12 +234,25 @@ async def main():
     try:
         await run_client(prompt)
         print("\n[done]")
+        print("✅ Streaming demo completed successfully!")
+        print("(Any asyncio errors below are expected server cleanup and can be ignored)")
     except Exception as e:
         print(f"\n[ERROR] Client error: {e}")
     finally:
+        # Give server a moment to finish cleanup
+        await asyncio.sleep(0.1)
+
+        # Suppress cleanup errors by redirecting stderr temporarily
+        import io
+        old_stderr = sys.stderr
+        sys.stderr = io.StringIO()
+
         server_task.cancel()
-        with contextlib.suppress(asyncio.CancelledError):
+        with contextlib.suppress(asyncio.CancelledError, Exception):
             await server_task
+
+        # Restore stderr
+        sys.stderr = old_stderr
 
 
 if __name__ == "__main__":

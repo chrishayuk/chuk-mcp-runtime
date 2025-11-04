@@ -2042,45 +2042,102 @@ export MCP_SANDBOX_ID="tenant-${CUSTOMER_ID}"
 
 ### Artifact Storage
 
-| Variable | Purpose | Example | When to Use |
-|----------|---------|---------|-------------|
-| `ARTIFACT_STORAGE_PROVIDER` | Storage backend | `filesystem`, `s3`, `ibm_cos` | Switch backends per environment |
-| `ARTIFACT_SESSION_PROVIDER` | Session tracking | `memory`, `redis` | Distributed deployments |
-| `ARTIFACT_BUCKET` | Bucket/directory name | `prod-artifacts`, `/data/files` | Per-environment buckets |
-| `ARTIFACT_FS_ROOT` | Filesystem storage path | `/var/lib/mcp` | Local storage location |
+Artifacts support **4 storage providers** (memory, filesystem, s3, ibm_cos) and **2 session providers** (memory, redis).
 
-**Cloud Provider Credentials:**
+**📋 Environment Variables Quick Reference:**
 
-**AWS S3:**
+| Provider | Required Variables | Optional Variables |
+|----------|-------------------|-------------------|
+| **Memory** | None | `ARTIFACT_STORAGE_PROVIDER=memory` (default)<br>`ARTIFACT_SESSION_PROVIDER=memory` (default) |
+| **Filesystem** | `ARTIFACT_STORAGE_PROVIDER=filesystem` | `ARTIFACT_FS_ROOT=./artifacts` (default)<br>`ARTIFACT_BUCKET=local-artifacts`<br>`ARTIFACT_SESSION_PROVIDER=memory` (default) |
+| **S3 (AWS)** | `ARTIFACT_STORAGE_PROVIDER=s3`<br>`ARTIFACT_BUCKET=my-bucket`<br>`AWS_ACCESS_KEY_ID`<br>`AWS_SECRET_ACCESS_KEY` | `AWS_REGION=us-east-1` (default)<br>`S3_ENDPOINT_URL` (uses AWS by default)<br>`ARTIFACT_SESSION_PROVIDER=redis` (recommended) |
+| **S3 (Tigris/MinIO)** | `ARTIFACT_STORAGE_PROVIDER=s3`<br>`ARTIFACT_BUCKET=my-bucket`<br>`S3_ENDPOINT_URL=https://...`<br>`AWS_ACCESS_KEY_ID`<br>`AWS_SECRET_ACCESS_KEY` | `AWS_REGION=auto`<br>`ARTIFACT_SESSION_PROVIDER=memory` |
+| **IBM COS (HMAC)** | `ARTIFACT_STORAGE_PROVIDER=s3`<br>`ARTIFACT_BUCKET=my-bucket`<br>`S3_ENDPOINT_URL=https://s3.us-south...`<br>`AWS_ACCESS_KEY_ID`<br>`AWS_SECRET_ACCESS_KEY` | `AWS_REGION=us-south`<br>`ARTIFACT_SESSION_PROVIDER=memory` |
+| **IBM COS (IAM)** | `ARTIFACT_STORAGE_PROVIDER=ibm_cos`<br>`ARTIFACT_BUCKET=my-bucket`<br>`IBM_COS_ENDPOINT=https://...`<br>`IBM_COS_APIKEY`<br>`IBM_COS_INSTANCE_CRN` | `ARTIFACT_SESSION_PROVIDER=memory` |
+
+**Session Providers:** `ARTIFACT_SESSION_PROVIDER=memory` (default) or `redis` (requires `REDIS_URL`)
+
+**Common Settings:** See [.env.example](.env.example) for complete configuration templates.
+
+**Storage Provider Options:**
+
+**1. Memory (Default - Development):**
 ```bash
+# No configuration needed! Uses memory by default
+# Perfect for: Development, testing, demos
+# Pros: Zero setup, fast | Cons: Ephemeral, RAM-limited
+```
+
+**2. Filesystem (Local Development):**
+```bash
+export ARTIFACT_STORAGE_PROVIDER=filesystem
+export ARTIFACT_SESSION_PROVIDER=memory
+export ARTIFACT_FS_ROOT=./artifacts
+export ARTIFACT_BUCKET=local-dev
+# Perfect for: Single-server, debugging, persistence
+# Pros: Persistent, inspectable | Cons: Not scalable
+```
+
+**3. AWS S3 or S3-Compatible (Production):**
+```bash
+# AWS S3
 export ARTIFACT_STORAGE_PROVIDER=s3
 export ARTIFACT_BUCKET=my-mcp-artifacts
 export AWS_ACCESS_KEY_ID=AKIA...
 export AWS_SECRET_ACCESS_KEY=...
-export AWS_DEFAULT_REGION=us-east-1
+export AWS_REGION=us-east-1
+
+# Tigris (S3-compatible on Fly.io)
+export ARTIFACT_STORAGE_PROVIDER=s3
+export ARTIFACT_BUCKET=my-bucket
+export S3_ENDPOINT_URL=https://fly.storage.tigris.dev
+export AWS_ACCESS_KEY_ID=tid_...
+export AWS_SECRET_ACCESS_KEY=tsec_...
+export AWS_REGION=auto
+
+# MinIO (S3-compatible, self-hosted)
+export ARTIFACT_STORAGE_PROVIDER=s3
+export ARTIFACT_BUCKET=mcp-artifacts
+export S3_ENDPOINT_URL=http://localhost:9000
+export AWS_ACCESS_KEY_ID=minioadmin
+export AWS_SECRET_ACCESS_KEY=minioadmin
+export AWS_REGION=us-east-1
+
+# Perfect for: Production, multi-server, cloud-native
+# Pros: Scalable, durable (11 nines) | Cons: AWS account, costs
 ```
 
-**IBM Cloud Object Storage:**
+**4. IBM Cloud Object Storage (Enterprise):**
 ```bash
+# Method 1: S3-Compatible HMAC Credentials (RECOMMENDED)
+export ARTIFACT_STORAGE_PROVIDER=s3
+export ARTIFACT_BUCKET=mcp-prod
+export S3_ENDPOINT_URL=https://s3.us-south.cloud-object-storage.appdomain.cloud
+export AWS_ACCESS_KEY_ID=<hmac-access-key>
+export AWS_SECRET_ACCESS_KEY=<hmac-secret-key>
+export AWS_REGION=us-south
+
+# Method 2: Native IAM Credentials
 export ARTIFACT_STORAGE_PROVIDER=ibm_cos
 export ARTIFACT_BUCKET=mcp-prod
 export IBM_COS_ENDPOINT=https://s3.us-south.cloud-object-storage.appdomain.cloud
-export IBM_COS_ACCESS_KEY_ID=...
-export IBM_COS_SECRET_ACCESS_KEY=...
-export IBM_COS_REGION=us-south
+export IBM_COS_APIKEY=<api-key>
+export IBM_COS_INSTANCE_CRN=crn:v1:bluemix:...
+
+# Perfect for: Enterprise, compliance (GDPR/HIPAA/SOC2)
+# Pros: Enterprise SLA, compliance certs | Cons: IBM Cloud account
 ```
 
-**Redis Session Provider** (for distributed/HA):
+**Redis Session Provider** (recommended for production):
 ```bash
 export ARTIFACT_SESSION_PROVIDER=redis
-export SESSION_REDIS_URL=redis://localhost:6379/0
-
-# Or individual components:
-export SESSION_REDIS_HOST=redis.internal
-export SESSION_REDIS_PORT=6379
-export SESSION_REDIS_DB=0
-export SESSION_REDIS_PASSWORD=secret
+export REDIS_URL=redis://localhost:6379/0
+# Or with TLS:
+export REDIS_URL=rediss://prod-redis:6379/0
+export REDIS_TLS_INSECURE=0  # Set to 1 to skip cert verification
 ```
+
+**Complete Examples:** See `.env.example` for full configuration examples for each use case.
 
 ### Authentication
 

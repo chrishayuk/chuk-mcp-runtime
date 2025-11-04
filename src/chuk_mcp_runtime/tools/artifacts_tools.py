@@ -19,7 +19,6 @@ from chuk_artifacts import ArtifactNotFoundError, ArtifactStore
 
 from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY, mcp_tool
 from chuk_mcp_runtime.server.logging_config import get_logger
-from chuk_mcp_runtime.session.session_management import validate_session_parameter
 
 # logger
 logger = get_logger("chuk_mcp_runtime.tools.artifacts")
@@ -181,13 +180,14 @@ async def upload_file(
     """
     _check_tool_enabled("upload_file")
 
-    # FIXED: Use async session validation
-    from chuk_mcp_runtime.session.native_session_management import (
-        create_mcp_session_manager,
-    )
+    # Get session from context or use provided session_id
+    from chuk_mcp_runtime.session.native_session_management import get_session_or_none
 
-    session_manager = create_mcp_session_manager({})
-    effective_session = await validate_session_parameter(session_id, "upload_file", session_manager)
+    effective_session = session_id or get_session_or_none()
+    if not effective_session:
+        raise ValueError(
+            "No session available - session_id parameter required or must be called within session context"
+        )
 
     store = await get_artifact_store()
 
@@ -239,13 +239,16 @@ async def write_file(
     """
     _check_tool_enabled("write_file")
 
-    # FIXED: Use async session validation
-    from chuk_mcp_runtime.session.native_session_management import (
-        create_mcp_session_manager,
-    )
+    # Get session from context or use provided session_id
+    from chuk_mcp_runtime.session.native_session_management import get_session_or_none
 
-    session_manager = create_mcp_session_manager({})
-    effective_session = await validate_session_parameter(session_id, "write_file", session_manager)
+    effective_session = session_id or get_session_or_none()
+    if not effective_session:
+        raise ValueError(
+            "No session available - session_id parameter required or must be called within session context"
+        )
+
+    logger.info(f"[ARTIFACT] write_file: Using session {effective_session}")
 
     store = await get_artifact_store()
 
@@ -265,7 +268,7 @@ async def write_file(
             meta=write_meta,
         )
 
-        return f"File created successfully. Artifact ID: {artifact_id}"
+        return f"File created successfully. Artifact ID: {artifact_id} (session: {effective_session})"
 
     except Exception as e:
         raise ValueError(f"Failed to write file: {str(e)}")
@@ -288,13 +291,14 @@ async def read_file(
     """
     _check_tool_enabled("read_file")
 
-    # FIXED: Use async session validation
-    from chuk_mcp_runtime.session.native_session_management import (
-        create_mcp_session_manager,
-    )
+    # Get session from context or use provided session_id
+    from chuk_mcp_runtime.session.native_session_management import get_session_or_none
 
-    session_manager = create_mcp_session_manager({})
-    await validate_session_parameter(session_id, "read_file", session_manager)
+    effective_session = session_id or get_session_or_none()
+    if not effective_session:
+        raise ValueError(
+            "No session available - session_id parameter required or must be called within session context"
+        )
 
     store = await get_artifact_store()
 
@@ -336,15 +340,16 @@ async def list_session_files(
     """
     _check_tool_enabled("list_session_files")
 
-    # FIXED: Use async session validation
-    from chuk_mcp_runtime.session.native_session_management import (
-        create_mcp_session_manager,
-    )
+    # Get session from context or use provided session_id
+    from chuk_mcp_runtime.session.native_session_management import get_session_or_none
 
-    session_manager = create_mcp_session_manager({})
-    effective_session = await validate_session_parameter(
-        session_id, "list_session_files", session_manager
-    )
+    effective_session = session_id or get_session_or_none()
+    if not effective_session:
+        raise ValueError(
+            "No session available - session_id parameter required or must be called within session context"
+        )
+
+    logger.info(f"[ARTIFACT] list_session_files: Using session {effective_session}")
 
     store = await get_artifact_store()
 
@@ -384,13 +389,14 @@ async def delete_file(artifact_id: str, session_id: Optional[str] = None) -> str
     """
     _check_tool_enabled("delete_file")
 
-    # FIXED: Use async session validation
-    from chuk_mcp_runtime.session.native_session_management import (
-        create_mcp_session_manager,
-    )
+    # Get session from context or use provided session_id
+    from chuk_mcp_runtime.session.native_session_management import get_session_or_none
 
-    session_manager = create_mcp_session_manager({})
-    await validate_session_parameter(session_id, "delete_file", session_manager)
+    effective_session = session_id or get_session_or_none()
+    if not effective_session:
+        raise ValueError(
+            "No session available - session_id parameter required or must be called within session context"
+        )
 
     store = await get_artifact_store()
 
@@ -422,15 +428,14 @@ async def list_directory(
     """
     _check_tool_enabled("list_directory")
 
-    # FIXED: Use async session validation
-    from chuk_mcp_runtime.session.native_session_management import (
-        create_mcp_session_manager,
-    )
+    # Get session from context or use provided session_id
+    from chuk_mcp_runtime.session.native_session_management import get_session_or_none
 
-    session_manager = create_mcp_session_manager({})
-    effective_session = await validate_session_parameter(
-        session_id, "list_directory", session_manager
-    )
+    effective_session = session_id or get_session_or_none()
+    if not effective_session:
+        raise ValueError(
+            "No session available - session_id parameter required or must be called within session context"
+        )
 
     store = await get_artifact_store()
 
@@ -475,13 +480,14 @@ async def copy_file(
     """
     _check_tool_enabled("copy_file")
 
-    # FIXED: Use async session validation
-    from chuk_mcp_runtime.session.native_session_management import (
-        create_mcp_session_manager,
-    )
+    # Get session from context or use provided session_id
+    from chuk_mcp_runtime.session.native_session_management import get_session_or_none
 
-    session_manager = create_mcp_session_manager({})
-    await validate_session_parameter(session_id, "copy_file", session_manager)
+    effective_session = session_id or get_session_or_none()
+    if not effective_session:
+        raise ValueError(
+            "No session available - session_id parameter required or must be called within session context"
+        )
 
     store = await get_artifact_store()
 
@@ -527,13 +533,14 @@ async def move_file(
     """
     _check_tool_enabled("move_file")
 
-    # FIXED: Use async session validation
-    from chuk_mcp_runtime.session.native_session_management import (
-        create_mcp_session_manager,
-    )
+    # Get session from context or use provided session_id
+    from chuk_mcp_runtime.session.native_session_management import get_session_or_none
 
-    session_manager = create_mcp_session_manager({})
-    await validate_session_parameter(session_id, "move_file", session_manager)
+    effective_session = session_id or get_session_or_none()
+    if not effective_session:
+        raise ValueError(
+            "No session available - session_id parameter required or must be called within session context"
+        )
 
     store = await get_artifact_store()
 
@@ -566,13 +573,14 @@ async def get_file_metadata(artifact_id: str, session_id: Optional[str] = None) 
     """
     _check_tool_enabled("get_file_metadata")
 
-    # FIXED: Use async session validation
-    from chuk_mcp_runtime.session.native_session_management import (
-        create_mcp_session_manager,
-    )
+    # Get session from context or use provided session_id
+    from chuk_mcp_runtime.session.native_session_management import get_session_or_none
 
-    session_manager = create_mcp_session_manager({})
-    await validate_session_parameter(session_id, "get_file_metadata", session_manager)
+    effective_session = session_id or get_session_or_none()
+    if not effective_session:
+        raise ValueError(
+            "No session available - session_id parameter required or must be called within session context"
+        )
 
     store = await get_artifact_store()
 
@@ -603,13 +611,14 @@ async def get_presigned_url(
     """
     _check_tool_enabled("get_presigned_url")
 
-    # FIXED: Use async session validation
-    from chuk_mcp_runtime.session.native_session_management import (
-        create_mcp_session_manager,
-    )
+    # Get session from context or use provided session_id
+    from chuk_mcp_runtime.session.native_session_management import get_session_or_none
 
-    session_manager = create_mcp_session_manager({})
-    await validate_session_parameter(session_id, "get_presigned_url", session_manager)
+    effective_session = session_id or get_session_or_none()
+    if not effective_session:
+        raise ValueError(
+            "No session available - session_id parameter required or must be called within session context"
+        )
 
     store = await get_artifact_store()
 
@@ -642,15 +651,14 @@ async def get_storage_stats(session_id: Optional[str] = None) -> Dict[str, Any]:
     """
     _check_tool_enabled("get_storage_stats")
 
-    # FIXED: Use async session validation
-    from chuk_mcp_runtime.session.native_session_management import (
-        create_mcp_session_manager,
-    )
+    # Get session from context or use provided session_id
+    from chuk_mcp_runtime.session.native_session_management import get_session_or_none
 
-    session_manager = create_mcp_session_manager({})
-    effective_session = await validate_session_parameter(
-        session_id, "get_storage_stats", session_manager
-    )
+    effective_session = session_id or get_session_or_none()
+    if not effective_session:
+        raise ValueError(
+            "No session available - session_id parameter required or must be called within session context"
+        )
 
     store = await get_artifact_store()
 
@@ -727,14 +735,13 @@ async def register_artifacts_tools(config: Dict[str, Any] | None = None) -> bool
     # 3) register the wanted helpers
     registered = 0
     for name in enabled_helpers:
-        TOOL_FUNCTIONS[name]
-
-        # Ensure tool is properly initialized
-        from chuk_mcp_runtime.common.mcp_tool_decorator import ensure_tool_initialized
+        tool_fn = TOOL_FUNCTIONS.get(name)
+        if tool_fn is None:
+            logger.error("Artifact tool %s not found in TOOL_FUNCTIONS", name)
+            continue
 
         try:
-            initialized_fn = await ensure_tool_initialized(name)
-            TOOLS_REGISTRY[name] = initialized_fn
+            TOOLS_REGISTRY[name] = tool_fn
             registered += 1
             logger.debug("Registered artifact tool: %s", name)
         except Exception as e:

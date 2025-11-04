@@ -472,11 +472,20 @@ class MCPServer:
                 arguments = await self._inject_session_context(resolved, arguments)
 
                 # Execute within session context
+                # Use MCP session if available, otherwise use session_id from arguments
+                effective_session_id = (
+                    mcp_session.session_id
+                    if mcp_session and hasattr(mcp_session, "session_id")
+                    else arguments.get("session_id")
+                )
                 async with SessionContext(
                     self.session_manager,
-                    session_id=arguments.get("session_id"),
+                    session_id=effective_session_id,
                     auto_create=True,
                 ) as session_id:
+                    self.logger.info(
+                        f"[SESSION] Executing tool '{resolved}' in session {session_id}"
+                    )
                     self.logger.debug(
                         "Executing tool '%s' in session %s (progress_token=%s)",
                         resolved,
