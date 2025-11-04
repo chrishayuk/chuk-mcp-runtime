@@ -10,14 +10,11 @@ This is the smallest possible end-to-end demo that:
    - obeys the JSON-RPC 2.0 shapes (`initialize`, `notifications/initialized`,
      `tools/call`)
    - handles the session-ID handshake required by SseServerTransport
-
-Note: You may see asyncio.CancelledError traces after [done] - these are
-      expected cleanup errors when forcefully terminating the server and can
-      be safely ignored.
 """
 
 import asyncio
 import contextlib
+import io
 import json
 import logging
 import os
@@ -33,10 +30,61 @@ import httpx
 ROOT = os.path.dirname(os.path.dirname(__file__))
 sys.path.append(ROOT)
 
-# Configure logging to suppress expected cleanup errors
-logging.basicConfig(level=logging.WARNING)
-for logger_name in ["uvicorn", "uvicorn.error", "anyio", "starlette"]:
-    logging.getLogger(logger_name).setLevel(logging.CRITICAL)
+# ─────────────────────────────────────────────────────────────────────────────
+# Suppress cleanup errors by filtering stderr
+# ─────────────────────────────────────────────────────────────────────────────
+_original_stderr = sys.stderr
+_stderr_buffer = []
+_suppress_errors = False
+
+
+class FilteredStderr:
+    """Filter stderr to suppress expected cleanup errors."""
+
+    def __init__(self, original):
+        self.original = original
+        self.buffer = []
+        self.suppressing = False
+
+    def write(self, text):
+        global _suppress_errors
+        if _suppress_errors:
+            # Buffer the text to check for error patterns
+            self.buffer.append(text)
+            full_text = ''.join(self.buffer)
+
+            # Check if this is a cleanup error we want to suppress
+            if 'ERROR:' in full_text and ('CancelledError' in full_text or 'lifespan' in full_text):
+                # Keep buffering until we see the end of the traceback
+                if text.strip() and not text.startswith(' '):
+                    # Clear buffer and skip this error
+                    self.buffer = []
+                return
+
+            # If buffer gets too large or we see normal output, flush it
+            if len(full_text) > 1000 or (text.strip() and not any(x in full_text for x in ['ERROR:', 'Traceback', '  File'])):
+                self.original.write(full_text)
+                self.buffer = []
+        else:
+            self.original.write(text)
+
+    def flush(self):
+        if self.buffer and not _suppress_errors:
+            self.original.write(''.join(self.buffer))
+            self.buffer = []
+        self.original.flush()
+
+    def isatty(self):
+        return self.original.isatty()
+
+
+# Install the filtered stderr
+sys.stderr = FilteredStderr(_original_stderr)
+
+# Configure logging
+import warnings
+warnings.filterwarnings("ignore")
+logging.basicConfig(level=logging.CRITICAL)
 
 from chuk_mcp_runtime.common.mcp_tool_decorator import mcp_tool
 from chuk_mcp_runtime.server.server import MCPServer
@@ -223,6 +271,8 @@ async def run_client(prompt: str):
 # 5  ‒  Main driver
 # ─────────────────────────────────────────────────────────────────────────────
 async def main():
+    global _suppress_errors
+
     prompt = " ".join(sys.argv[1:]) or "Hello streaming world!"
     print(f"[DEBUG] Starting with prompt: '{prompt}'")
 
@@ -235,24 +285,21 @@ async def main():
         await run_client(prompt)
         print("\n[done]")
         print("✅ Streaming demo completed successfully!")
-        print("(Any asyncio errors below are expected server cleanup and can be ignored)")
     except Exception as e:
         print(f"\n[ERROR] Client error: {e}")
     finally:
+        # Enable error suppression for cleanup
+        _suppress_errors = True
+
         # Give server a moment to finish cleanup
         await asyncio.sleep(0.1)
-
-        # Suppress cleanup errors by redirecting stderr temporarily
-        import io
-        old_stderr = sys.stderr
-        sys.stderr = io.StringIO()
 
         server_task.cancel()
         with contextlib.suppress(asyncio.CancelledError, Exception):
             await server_task
 
-        # Restore stderr
-        sys.stderr = old_stderr
+        # Additional sleep to let all cleanup complete
+        await asyncio.sleep(0.2)
 
 
 if __name__ == "__main__":

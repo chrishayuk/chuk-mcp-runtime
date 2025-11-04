@@ -195,6 +195,29 @@ Configuration: `openai_compatible_config.yaml`
 uv run python examples/progress_e2e_demo.py
 ```
 
+### Session Management
+**`session_demo.py`** - Session ID management and lifecycle
+- Automatic session creation on first operation
+- Capturing and reusing session IDs
+- Managing files within a session
+- Session-based file listing
+
+```bash
+uv run python examples/session_demo.py
+```
+
+**`session_isolation_demo.py`** - Session isolation testing
+- Creating multiple independent sessions
+- Testing file isolation between sessions
+- Understanding isolation behavior by provider
+- Memory vs production isolation differences
+
+```bash
+uv run python examples/session_isolation_demo.py
+```
+
+**Note:** With memory provider, files are visible across all sessions. For true isolation, use Redis session provider or production storage configuration.
+
 ### Streaming
 **`stream_demo.py`** - Server-Sent Events (SSE) streaming
 - Token-by-token streaming responses
