@@ -98,7 +98,9 @@ def main():
         print()
         print("Usage:")
         print("  1. Set in .env file: ARTIFACT_BUCKET=my-bucket")
-        print("  2. Or set via command: ARTIFACT_BUCKET=my-bucket uv run python examples/artifacts_s3.py")
+        print(
+            "  2. Or set via command: ARTIFACT_BUCKET=my-bucket uv run python examples/artifacts_s3.py"
+        )
         print()
         return
 
@@ -222,12 +224,7 @@ artifacts:
             },
         ]
 
-        session_id = None
         for i, file_data in enumerate(files_to_create, start=2):
-            # Add session_id to subsequent requests
-            if session_id:
-                file_data["session_id"] = session_id
-
             print(f"📤 Uploading {file_data['filename']} to S3...")
             write_msg = {
                 "jsonrpc": "2.0",
@@ -243,16 +240,16 @@ artifacts:
                     text = result["content"][0].get("text", "")
                     try:
                         inner = json.loads(text)
-                        # Capture session_id from first response
-                        if not session_id:
+                        # Display session info from first response
+                        if i == 2:
                             session_id = inner.get("session_id")
                             print(f"   ✅ Uploaded (session: {session_id})")
                         else:
-                            print(f"   ✅ Uploaded")
+                            print("   ✅ Uploaded")
                     except json.JSONDecodeError:
-                        print(f"   ✅ Uploaded")
+                        print("   ✅ Uploaded")
                 else:
-                    print(f"   ✅ Uploaded")
+                    print("   ✅ Uploaded")
             else:
                 print(f"   ❌ Failed: {response.get('error')}")
             print()
@@ -267,7 +264,7 @@ artifacts:
             "jsonrpc": "2.0",
             "id": 10,
             "method": "tools/call",
-            "params": {"name": "list_session_files", "arguments": {"session_id": session_id}},
+            "params": {"name": "list_session_files", "arguments": {}},
         }
 
         response = send_and_receive(process, list_msg, expected_id=10)

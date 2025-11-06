@@ -32,17 +32,17 @@ _enabled_tools: Set[str] = set()
 DEFAULT_TOOL_CONFIG = {
     "enabled": False,  # DISABLED by default - must be explicitly enabled in config
     "tools": {
+        # General tools with scope parameter (backward compatible, default=session)
         "upload_file": {
             "enabled": False,
-            "description": "Upload files with base64 content",
+            "description": "Upload file (scope: session or user, default=session)",
         },
-        "write_file": {"enabled": False, "description": "Create or update text files"},
-        "read_file": {"enabled": False, "description": "Read file contents"},
-        "list_session_files": {
+        "write_file": {
             "enabled": False,
-            "description": "List files in session",
+            "description": "Write file (scope: session or user, default=session)",
         },
-        "delete_file": {"enabled": False, "description": "Delete files"},
+        "read_file": {"enabled": False, "description": "Read file (auto access control)"},
+        "delete_file": {"enabled": False, "description": "Delete file (auto access control)"},
         "list_directory": {"enabled": False, "description": "List directory contents"},
         "copy_file": {"enabled": False, "description": "Copy files within session"},
         "move_file": {"enabled": False, "description": "Move/rename files"},
@@ -54,6 +54,32 @@ DEFAULT_TOOL_CONFIG = {
         "get_storage_stats": {
             "enabled": False,
             "description": "Get storage statistics",
+        },
+        # Explicit session-scoped tools (v0.8)
+        "write_session_file": {
+            "enabled": False,
+            "description": "Write file to session storage (ephemeral)",
+        },
+        "upload_session_file": {
+            "enabled": False,
+            "description": "Upload file to session storage (ephemeral)",
+        },
+        "list_session_files": {
+            "enabled": False,
+            "description": "List files in current session",
+        },
+        # Explicit user-scoped tools (v0.8)
+        "write_user_file": {
+            "enabled": False,
+            "description": "Write file to user storage (persistent)",
+        },
+        "upload_user_file": {
+            "enabled": False,
+            "description": "Upload file to user storage (persistent)",
+        },
+        "list_user_files": {
+            "enabled": False,
+            "description": "List user's persistent files",
         },
     },
 }
@@ -161,18 +187,21 @@ async def upload_file(
     filename: str,
     mime: str = "application/octet-stream",
     summary: str = "File uploaded via MCP",
-    session_id: Optional[str] = None,
+    scope: str = "session",
+    ttl: Optional[int] = None,
     meta: Optional[Dict[str, Any]] = None,
 ) -> str:
     """
     Upload a file with base64 encoded content to the artifact store.
+    Reports progress notifications if client provides a progress token.
 
     Args:
         content: Base64 encoded file content
         filename: Name of the file to create
         mime: MIME type of the file (default: application/octet-stream)
         summary: Description of the file (default: File uploaded via MCP)
-        session_id: Session ID (optional, will use current session if not provided)
+        scope: Storage scope - 'session' (ephemeral) or 'user' (persistent)
+        ttl: Time to live in seconds (optional, defaults based on scope)
         meta: Additional metadata for the file (optional)
 
     Returns:
@@ -180,35 +209,65 @@ async def upload_file(
     """
     _check_tool_enabled("upload_file")
 
-    # Get session from context or use provided session_id
-    from chuk_mcp_runtime.session.native_session_management import get_session_or_none
+    # Get session and user from context (NEVER from parameters!)
+    from chuk_mcp_runtime.server.request_context import send_progress
+    from chuk_mcp_runtime.session.native_session_management import (
+        get_session_or_none,
+        get_user_or_none,
+        require_session,
+        require_user,
+    )
 
-    effective_session = session_id or get_session_or_none()
-    if not effective_session:
-        raise ValueError(
-            "No session available - session_id parameter required or must be called within session context"
-        )
+    # Determine required context based on scope
+    user_id: Optional[str]
+    session_id: Optional[str]
+
+    if scope == "user":
+        user_id = require_user()  # Must be authenticated
+        session_id = get_session_or_none()
+        default_ttl = ttl or 86400 * 365  # 1 year
+    elif scope == "sandbox":
+        raise ValueError("Sandbox scope not allowed for uploads (admin only)")
+    else:  # session (default)
+        user_id = get_user_or_none()
+        session_id = require_session()  # Must have session
+        default_ttl = ttl or 900  # 15 minutes
 
     store = await get_artifact_store()
 
     try:
+        # Report progress: Decoding base64
+        await send_progress(1, 4, f"Decoding {filename}...")
         file_data = base64.b64decode(content)
+        file_size = len(file_data)
+
+        # Report progress: Preparing upload
+        await send_progress(2, 4, f"Preparing upload ({file_size:,} bytes)...")
         upload_meta = {
             "uploaded_via": "mcp",
             "upload_time": datetime.now().isoformat(),
+            "scope": scope,
             **(meta or {}),
         }
 
+        # Report progress: Uploading
+        await send_progress(3, 4, f"Uploading to {scope} storage...")
         artifact_id = await store.store(
             data=file_data,
             mime=mime,
             summary=summary,
             filename=filename,
-            session_id=effective_session,
+            user_id=user_id,
+            session_id=session_id,
+            scope=scope,
+            ttl=default_ttl,
             meta=upload_meta,
         )
 
-        return f"File uploaded successfully. Artifact ID: {artifact_id}"
+        # Report progress: Complete
+        await send_progress(4, 4, f"Upload complete: {artifact_id}")
+
+        return f"File uploaded to {scope} storage. Artifact ID: {artifact_id}"
 
     except Exception as e:
         raise ValueError(f"Failed to upload file: {str(e)}")
@@ -220,18 +279,21 @@ async def write_file(
     filename: str,
     mime: str = "text/plain",
     summary: str = "File created via MCP",
-    session_id: Optional[str] = None,
+    scope: str = "session",
+    ttl: Optional[int] = None,
     meta: Optional[Dict[str, Any]] = None,
 ) -> str:
     """
     Create or update a text file in the artifact store.
+    Reports progress notifications if client provides a progress token.
 
     Args:
         content: Text content of the file
         filename: Name of the file to create
         mime: MIME type of the file (default: text/plain)
         summary: Description of the file (default: File created via MCP)
-        session_id: Session ID (optional, will use current session if not provided)
+        scope: Storage scope - 'session' (ephemeral) or 'user' (persistent)
+        ttl: Time to live in seconds (optional, defaults based on scope)
         meta: Additional metadata for the file (optional)
 
     Returns:
@@ -239,82 +301,133 @@ async def write_file(
     """
     _check_tool_enabled("write_file")
 
-    # Get session from context or use provided session_id
-    from chuk_mcp_runtime.session.native_session_management import get_session_or_none
+    # Get session and user from context (NEVER from parameters!)
+    from chuk_mcp_runtime.server.request_context import send_progress
+    from chuk_mcp_runtime.session.native_session_management import (
+        get_session_or_none,
+        get_user_or_none,
+        require_session,
+        require_user,
+    )
 
-    effective_session = session_id or get_session_or_none()
-    if not effective_session:
-        raise ValueError(
-            "No session available - session_id parameter required or must be called within session context"
-        )
+    # Determine required context based on scope
+    user_id: Optional[str]
+    session_id: Optional[str]
 
-    logger.info(f"[ARTIFACT] write_file: Using session {effective_session}")
+    if scope == "user":
+        user_id = require_user()  # Must be authenticated
+        session_id = get_session_or_none()
+        default_ttl = ttl or 86400 * 365  # 1 year
+    elif scope == "sandbox":
+        raise ValueError("Sandbox scope not allowed for writes (admin only)")
+    else:  # session (default)
+        user_id = get_user_or_none()
+        session_id = require_session()  # Must have session
+        default_ttl = ttl or 900  # 15 minutes
+
+    logger.info(f"[ARTIFACT] write_file: scope={scope}, session={session_id}, user={user_id}")
 
     store = await get_artifact_store()
 
     try:
+        # Report progress: Preparing
+        await send_progress(1, 3, f"Preparing to write {filename}...")
         write_meta = {
             "created_via": "mcp",
             "creation_time": datetime.now().isoformat(),
+            "scope": scope,
             **(meta or {}),
         }
 
-        artifact_id = await store.write_file(
-            content=content,
-            filename=filename,
+        # Convert content to bytes if needed
+        if isinstance(content, str):
+            data = content.encode("utf-8")
+        else:
+            data = content
+
+        # Report progress: Writing
+        await send_progress(2, 3, f"Writing to {scope} storage...")
+        artifact_id = await store.store(
+            data=data,
             mime=mime,
             summary=summary,
-            session_id=effective_session,
+            filename=filename,
+            user_id=user_id,
+            session_id=session_id,
+            scope=scope,
+            ttl=default_ttl,
             meta=write_meta,
         )
 
-        return f"File created successfully. Artifact ID: {artifact_id} (session: {effective_session})"
+        # Report progress: Complete
+        await send_progress(3, 3, f"File created: {artifact_id}")
+
+        return f"File created in {scope} storage. Artifact ID: {artifact_id}"
 
     except Exception as e:
         raise ValueError(f"Failed to write file: {str(e)}")
 
 
 @mcp_tool(name="read_file", description="Read file contents")
-async def read_file(
-    artifact_id: str, as_text: bool = True, session_id: Optional[str] = None
-) -> Union[str, Dict[str, Any]]:
+async def read_file(artifact_id: str, as_text: bool = True) -> Union[str, Dict[str, Any]]:
     """
     Read the content of a file from the artifact store.
+    Automatically enforces access control based on file scope.
 
     Args:
         artifact_id: Unique identifier of the file to read
         as_text: Whether to return content as text (default: True) or as binary with metadata
-        session_id: Session ID (optional, will use current session if not provided)
 
     Returns:
         File content as text, or dictionary with content and metadata if as_text=False
     """
     _check_tool_enabled("read_file")
 
-    # Get session from context or use provided session_id
-    from chuk_mcp_runtime.session.native_session_management import get_session_or_none
+    # Get session and user from context (NEVER from parameters!)
+    from chuk_mcp_runtime.session.native_session_management import (
+        get_session_or_none,
+        get_user_or_none,
+    )
 
-    effective_session = session_id or get_session_or_none()
-    if not effective_session:
-        raise ValueError(
-            "No session available - session_id parameter required or must be called within session context"
-        )
+    user_id = get_user_or_none()
+    session_id = get_session_or_none()
 
     store = await get_artifact_store()
 
     try:
-        if as_text:
-            content = await store.read_file(artifact_id, as_text=True)
-            return content
-        else:
-            data = await store.retrieve(artifact_id)
-            metadata = await store.metadata(artifact_id)
+        # Get metadata to check scope and ownership
+        metadata = await store.metadata(artifact_id)
 
+        # Access control based on scope
+        if metadata.scope == "user":
+            # User scope: Must be the owner
+            if not user_id or user_id != metadata.owner_id:
+                raise ValueError(f"Access denied: file belongs to user {metadata.owner_id}")
+            data = await store.retrieve(artifact_id, user_id=user_id)
+
+        elif metadata.scope == "session":
+            # Session scope: Must be same session
+            if not session_id or session_id != metadata.session_id:
+                raise ValueError("Access denied: file belongs to different session")
+            data = await store.retrieve(artifact_id, session_id=session_id)
+
+        elif metadata.scope == "sandbox":
+            # Sandbox scope: Anyone can read
+            data = await store.retrieve(artifact_id)
+
+        else:
+            raise ValueError(f"Unknown scope: {metadata.scope}")
+
+        if as_text:
+            return data.decode()
+        else:
             return {
                 "content": base64.b64encode(data).decode(),
                 "filename": metadata.get("filename", "unknown"),
                 "mime": metadata.get("mime", "application/octet-stream"),
                 "size": len(data),
+                "scope": metadata.scope,
+                "owner": metadata.owner_id,
                 "metadata": metadata,
             }
 
@@ -324,15 +437,12 @@ async def read_file(
         raise ValueError(f"Failed to read file: {str(e)}")
 
 
-@mcp_tool(name="list_session_files", description="List files in session")
-async def list_session_files(
-    session_id: Optional[str] = None, include_metadata: bool = False
-) -> List[Dict[str, Any]]:
+@mcp_tool(name="list_session_files", description="List files in current session")
+async def list_session_files(include_metadata: bool = False) -> List[Dict[str, Any]]:
     """
-    List all files in the specified session.
+    List all files in the current session (ephemeral scope only).
 
     Args:
-        session_id: Session ID (optional, will use current session if not provided)
         include_metadata: Whether to include full metadata for each file (default: False)
 
     Returns:
@@ -340,21 +450,17 @@ async def list_session_files(
     """
     _check_tool_enabled("list_session_files")
 
-    # Get session from context or use provided session_id
-    from chuk_mcp_runtime.session.native_session_management import get_session_or_none
+    # Get session from context (NEVER from parameters!)
+    from chuk_mcp_runtime.session.native_session_management import require_session
 
-    effective_session = session_id or get_session_or_none()
-    if not effective_session:
-        raise ValueError(
-            "No session available - session_id parameter required or must be called within session context"
-        )
+    session_id = require_session()
 
-    logger.info(f"[ARTIFACT] list_session_files: Using session {effective_session}")
+    logger.info(f"[ARTIFACT] list_session_files: session={session_id}")
 
     store = await get_artifact_store()
 
     try:
-        files = await store.list_by_session(effective_session)
+        files = await store.list_by_session(session_id)
 
         if include_metadata:
             return files
@@ -366,6 +472,7 @@ async def list_session_files(
                     "mime": f.get("mime", "unknown"),
                     "bytes": f.get("bytes", 0),
                     "summary": f.get("summary", ""),
+                    "scope": f.get("scope", "session"),
                     "created": f.get("created", ""),
                 }
                 for f in files
@@ -376,71 +483,87 @@ async def list_session_files(
 
 
 @mcp_tool(name="delete_file", description="Delete files")
-async def delete_file(artifact_id: str, session_id: Optional[str] = None) -> str:
+async def delete_file(artifact_id: str) -> str:
     """
     Delete a file from the artifact store.
+    Automatically enforces access control based on file scope.
 
     Args:
         artifact_id: Unique identifier of the file to delete
-        session_id: Session ID (optional, will use current session if not provided)
 
     Returns:
         Success or failure message
     """
     _check_tool_enabled("delete_file")
 
-    # Get session from context or use provided session_id
-    from chuk_mcp_runtime.session.native_session_management import get_session_or_none
+    # Get session and user from context (NEVER from parameters!)
+    from chuk_mcp_runtime.session.native_session_management import (
+        get_session_or_none,
+        get_user_or_none,
+    )
 
-    effective_session = session_id or get_session_or_none()
-    if not effective_session:
-        raise ValueError(
-            "No session available - session_id parameter required or must be called within session context"
-        )
+    user_id = get_user_or_none()
+    session_id = get_session_or_none()
 
     store = await get_artifact_store()
 
     try:
-        deleted = await store.delete(artifact_id)
+        # Get metadata to check scope and ownership
+        metadata = await store.metadata(artifact_id)
+
+        # Access control based on scope
+        if metadata.scope == "user":
+            # User scope: Must be the owner
+            if not user_id or user_id != metadata.owner_id:
+                raise ValueError(f"Access denied: file belongs to user {metadata.owner_id}")
+            deleted = await store.delete(artifact_id, user_id=user_id)
+
+        elif metadata.scope == "session":
+            # Session scope: Must be same session
+            if not session_id or session_id != metadata.session_id:
+                raise ValueError("Access denied: file belongs to different session")
+            deleted = await store.delete(artifact_id, session_id=session_id)
+
+        elif metadata.scope == "sandbox":
+            # Sandbox scope: Admin only
+            raise ValueError("Cannot delete sandbox files (admin only)")
+
+        else:
+            raise ValueError(f"Unknown scope: {metadata.scope}")
 
         if deleted:
             return f"File deleted successfully: {artifact_id}"
         else:
             return f"File not found or already deleted: {artifact_id}"
 
+    except ArtifactNotFoundError:
+        raise ValueError(f"File not found: {artifact_id}")
     except Exception as e:
         raise ValueError(f"Failed to delete file: {str(e)}")
 
 
 @mcp_tool(name="list_directory", description="List directory contents")
-async def list_directory(
-    directory_path: str, session_id: Optional[str] = None
-) -> List[Dict[str, Any]]:
+async def list_directory(directory_path: str) -> List[Dict[str, Any]]:
     """
-    List files in a specific directory within the session.
+    List files in a specific directory within the current session.
 
     Args:
         directory_path: Path to the directory to list
-        session_id: Session ID (optional, will use current session if not provided)
 
     Returns:
         List of files in the specified directory
     """
     _check_tool_enabled("list_directory")
 
-    # Get session from context or use provided session_id
-    from chuk_mcp_runtime.session.native_session_management import get_session_or_none
+    # Get session from context (NEVER from parameters!)
+    from chuk_mcp_runtime.session.native_session_management import require_session
 
-    effective_session = session_id or get_session_or_none()
-    if not effective_session:
-        raise ValueError(
-            "No session available - session_id parameter required or must be called within session context"
-        )
+    session_id = require_session()
 
     store = await get_artifact_store()
 
     try:
-        files = await store.get_directory_contents(effective_session, directory_path)
+        files = await store.get_directory_contents(session_id, directory_path)
 
         return [
             {
@@ -462,17 +585,15 @@ async def copy_file(
     artifact_id: str,
     new_filename: str,
     new_summary: Optional[str] = None,
-    session_id: Optional[str] = None,
     meta: Optional[Dict[str, Any]] = None,
 ) -> str:
     """
-    Copy a file within the same session.
+    Copy a file within the current session.
 
     Args:
         artifact_id: Unique identifier of the file to copy
         new_filename: Name for the copied file
         new_summary: Description for the copied file (optional)
-        session_id: Session ID (optional, will use current session if not provided)
         meta: Additional metadata for the copied file (optional)
 
     Returns:
@@ -480,14 +601,10 @@ async def copy_file(
     """
     _check_tool_enabled("copy_file")
 
-    # Get session from context or use provided session_id
-    from chuk_mcp_runtime.session.native_session_management import get_session_or_none
+    # Get session from context (NEVER from parameters!)
+    from chuk_mcp_runtime.session.native_session_management import require_session
 
-    effective_session = session_id or get_session_or_none()
-    if not effective_session:
-        raise ValueError(
-            "No session available - session_id parameter required or must be called within session context"
-        )
+    require_session()  # Validate session exists
 
     store = await get_artifact_store()
 
@@ -515,17 +632,15 @@ async def move_file(
     artifact_id: str,
     new_filename: str,
     new_summary: Optional[str] = None,
-    session_id: Optional[str] = None,
     meta: Optional[Dict[str, Any]] = None,
 ) -> str:
     """
-    Move/rename a file within the same session.
+    Move/rename a file within the current session.
 
     Args:
         artifact_id: Unique identifier of the file to move/rename
         new_filename: New name for the file
         new_summary: New description for the file (optional)
-        session_id: Session ID (optional, will use current session if not provided)
         meta: Additional metadata for the moved file (optional)
 
     Returns:
@@ -533,14 +648,10 @@ async def move_file(
     """
     _check_tool_enabled("move_file")
 
-    # Get session from context or use provided session_id
-    from chuk_mcp_runtime.session.native_session_management import get_session_or_none
+    # Get session from context (NEVER from parameters!)
+    from chuk_mcp_runtime.session.native_session_management import require_session
 
-    effective_session = session_id or get_session_or_none()
-    if not effective_session:
-        raise ValueError(
-            "No session available - session_id parameter required or must be called within session context"
-        )
+    require_session()  # Validate session exists
 
     store = await get_artifact_store()
 
@@ -560,27 +671,22 @@ async def move_file(
 
 
 @mcp_tool(name="get_file_metadata", description="Get file metadata")
-async def get_file_metadata(artifact_id: str, session_id: Optional[str] = None) -> Dict[str, Any]:
+async def get_file_metadata(artifact_id: str) -> Dict[str, Any]:
     """
-    Get detailed metadata for a file.
+    Get detailed metadata for a file in the current session.
 
     Args:
         artifact_id: Unique identifier of the file
-        session_id: Session ID (optional, will use current session if not provided)
 
     Returns:
         Dictionary containing file metadata (size, type, creation date, etc.)
     """
     _check_tool_enabled("get_file_metadata")
 
-    # Get session from context or use provided session_id
-    from chuk_mcp_runtime.session.native_session_management import get_session_or_none
+    # Get session from context (NEVER from parameters!)
+    from chuk_mcp_runtime.session.native_session_management import require_session
 
-    effective_session = session_id or get_session_or_none()
-    if not effective_session:
-        raise ValueError(
-            "No session available - session_id parameter required or must be called within session context"
-        )
+    require_session()  # Validate session exists
 
     store = await get_artifact_store()
 
@@ -595,30 +701,23 @@ async def get_file_metadata(artifact_id: str, session_id: Optional[str] = None) 
 
 
 @mcp_tool(name="get_presigned_url", description="Generate presigned URLs")
-async def get_presigned_url(
-    artifact_id: str, expires_in: str = "medium", session_id: Optional[str] = None
-) -> str:
+async def get_presigned_url(artifact_id: str, expires_in: str = "medium") -> str:
     """
-    Get a presigned URL for downloading a file.
+    Get a presigned URL for downloading a file in the current session.
 
     Args:
         artifact_id: Unique identifier of the file
         expires_in: URL expiration time - 'short', 'medium', or 'long' (default: medium)
-        session_id: Session ID (optional, will use current session if not provided)
 
     Returns:
         Presigned URL for downloading the file
     """
     _check_tool_enabled("get_presigned_url")
 
-    # Get session from context or use provided session_id
-    from chuk_mcp_runtime.session.native_session_management import get_session_or_none
+    # Get session from context (NEVER from parameters!)
+    from chuk_mcp_runtime.session.native_session_management import require_session
 
-    effective_session = session_id or get_session_or_none()
-    if not effective_session:
-        raise ValueError(
-            "No session available - session_id parameter required or must be called within session context"
-        )
+    require_session()  # Validate session exists
 
     store = await get_artifact_store()
 
@@ -639,43 +738,165 @@ async def get_presigned_url(
 
 
 @mcp_tool(name="get_storage_stats", description="Get storage statistics")
-async def get_storage_stats(session_id: Optional[str] = None) -> Dict[str, Any]:
+async def get_storage_stats() -> Dict[str, Any]:
     """
-    Get statistics about the artifact store.
-
-    Args:
-        session_id: Session ID (optional, will use current session if not provided)
+    Get statistics about the artifact store for current session/user.
 
     Returns:
         Dictionary with storage statistics including file count and total bytes
     """
     _check_tool_enabled("get_storage_stats")
 
-    # Get session from context or use provided session_id
-    from chuk_mcp_runtime.session.native_session_management import get_session_or_none
+    # Get session and user from context (NEVER from parameters!)
+    from chuk_mcp_runtime.session.native_session_management import (
+        get_session_or_none,
+        get_user_or_none,
+    )
 
-    effective_session = session_id or get_session_or_none()
-    if not effective_session:
-        raise ValueError(
-            "No session available - session_id parameter required or must be called within session context"
-        )
+    session_id = get_session_or_none()
+    user_id = get_user_or_none()
 
     store = await get_artifact_store()
 
     try:
         stats = await store.get_stats()
-        session_files = await store.list_by_session(effective_session)
-        session_stats = {
-            "session_id": effective_session,
-            "session_file_count": len(session_files),
-            "session_total_bytes": sum(f.get("bytes", 0) for f in session_files),
-        }
 
-        stats.update(session_stats)
+        # Add session stats if available
+        if session_id:
+            session_files = await store.list_by_session(session_id)
+            stats["session_id"] = session_id
+            stats["session_file_count"] = len(session_files)
+            stats["session_total_bytes"] = sum(f.get("bytes", 0) for f in session_files)
+
+        # Add user stats if available
+        if user_id:
+            try:
+                user_files = await store.search(user_id=user_id, scope="user")
+                stats["user_id"] = user_id
+                stats["user_file_count"] = len(user_files)
+                stats["user_total_bytes"] = sum(f.get("bytes", 0) for f in user_files)
+            except Exception:
+                # search may not be available on all providers
+                pass
+
         return stats
 
     except Exception as e:
         raise ValueError(f"Failed to get storage stats: {str(e)}")
+
+
+# ============================================================================
+# Explicit Session-Scoped Tools (v0.8)
+# ============================================================================
+
+
+@mcp_tool(name="write_session_file", description="Write file to session storage (ephemeral)")
+async def write_session_file(
+    content: str,
+    filename: str,
+    mime: str = "text/plain",
+    summary: str = "Session file",
+    ttl: Optional[int] = None,
+    meta: Optional[Dict[str, Any]] = None,
+) -> str:
+    """Write file to session storage (ephemeral, expires with session)."""
+    return await write_file(content, filename, mime, summary, scope="session", ttl=ttl, meta=meta)
+
+
+@mcp_tool(name="upload_session_file", description="Upload file to session storage (ephemeral)")
+async def upload_session_file(
+    content: str,
+    filename: str,
+    mime: str = "application/octet-stream",
+    summary: str = "Session upload",
+    ttl: Optional[int] = None,
+    meta: Optional[Dict[str, Any]] = None,
+) -> str:
+    """Upload file to session storage (ephemeral, expires with session)."""
+    return await upload_file(content, filename, mime, summary, scope="session", ttl=ttl, meta=meta)
+
+
+# ============================================================================
+# Explicit User-Scoped Tools (v0.8)
+# ============================================================================
+
+
+@mcp_tool(name="write_user_file", description="Write file to user storage (persistent)")
+async def write_user_file(
+    content: str,
+    filename: str,
+    mime: str = "text/plain",
+    summary: str = "User file",
+    ttl: Optional[int] = None,
+    meta: Optional[Dict[str, Any]] = None,
+) -> str:
+    """Write file to user's persistent storage (survives sessions)."""
+    return await write_file(content, filename, mime, summary, scope="user", ttl=ttl, meta=meta)
+
+
+@mcp_tool(name="upload_user_file", description="Upload file to user storage (persistent)")
+async def upload_user_file(
+    content: str,
+    filename: str,
+    mime: str = "application/octet-stream",
+    summary: str = "User upload",
+    ttl: Optional[int] = None,
+    meta: Optional[Dict[str, Any]] = None,
+) -> str:
+    """Upload file to user's persistent storage (survives sessions)."""
+    return await upload_file(content, filename, mime, summary, scope="user", ttl=ttl, meta=meta)
+
+
+@mcp_tool(name="list_user_files", description="List user's persistent files")
+async def list_user_files(
+    mime_prefix: Optional[str] = None,
+    meta_filter: Optional[Dict[str, Any]] = None,
+    include_metadata: bool = False,
+) -> List[Dict[str, Any]]:
+    """
+    List files in user's persistent storage.
+
+    Args:
+        mime_prefix: Filter by MIME type prefix (e.g., 'image/', 'application/pdf')
+        meta_filter: Filter by metadata key-value pairs
+        include_metadata: Whether to include full metadata for each file
+
+    Returns:
+        List of user's files
+    """
+    _check_tool_enabled("list_user_files")
+
+    # User REQUIRED
+    from chuk_mcp_runtime.session.native_session_management import require_user
+
+    user_id = require_user()
+
+    store = await get_artifact_store()
+
+    try:
+        # Search user's files
+        files = await store.search(
+            user_id=user_id, scope="user", mime_prefix=mime_prefix, meta_filter=meta_filter
+        )
+
+        if include_metadata:
+            return files
+        else:
+            return [
+                {
+                    "artifact_id": f.get("artifact_id"),
+                    "filename": f.get("filename", "unknown"),
+                    "mime": f.get("mime", "unknown"),
+                    "bytes": f.get("bytes", 0),
+                    "summary": f.get("summary", ""),
+                    "scope": "user",
+                    "created": f.get("stored_at", ""),
+                }
+                for f in files
+            ]
+
+    except Exception as e:
+        raise ValueError(f"Failed to list user files: {str(e)}")
 
 
 # ============================================================================
@@ -684,10 +905,10 @@ async def get_storage_stats(session_id: Optional[str] = None) -> Dict[str, Any]:
 
 # Map of tool name to function
 TOOL_FUNCTIONS = {
+    # General tools with scope parameter (backward compatible)
     "upload_file": upload_file,
     "write_file": write_file,
     "read_file": read_file,
-    "list_session_files": list_session_files,
     "delete_file": delete_file,
     "list_directory": list_directory,
     "copy_file": copy_file,
@@ -695,6 +916,14 @@ TOOL_FUNCTIONS = {
     "get_file_metadata": get_file_metadata,
     "get_presigned_url": get_presigned_url,
     "get_storage_stats": get_storage_stats,
+    # Explicit session-scoped tools (v0.8)
+    "write_session_file": write_session_file,
+    "upload_session_file": upload_session_file,
+    "list_session_files": list_session_files,
+    # Explicit user-scoped tools (v0.8)
+    "write_user_file": write_user_file,
+    "upload_user_file": upload_user_file,
+    "list_user_files": list_user_files,
 }
 
 # ============================================================================
@@ -787,6 +1016,16 @@ def get_enabled_tools() -> List[str]:
 
 # Tool list for external reference (all possible tools)
 ALL_ARTIFACT_TOOLS = list(DEFAULT_TOOL_CONFIG["tools"].keys())
+
+
+def require_user() -> str:
+    """Get user from context or raise (helper for user-scoped operations)."""
+    from chuk_mcp_runtime.session.native_session_management import get_user_or_none
+
+    user_id = get_user_or_none()
+    if not user_id:
+        raise ValueError("User context required - must be authenticated")
+    return user_id
 
 
 # Dynamic tool list based on configuration

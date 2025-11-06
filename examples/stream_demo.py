@@ -14,7 +14,6 @@ This is the smallest possible end-to-end demo that:
 
 import asyncio
 import contextlib
-import io
 import json
 import logging
 import os
@@ -51,18 +50,20 @@ class FilteredStderr:
         if _suppress_errors:
             # Buffer the text to check for error patterns
             self.buffer.append(text)
-            full_text = ''.join(self.buffer)
+            full_text = "".join(self.buffer)
 
             # Check if this is a cleanup error we want to suppress
-            if 'ERROR:' in full_text and ('CancelledError' in full_text or 'lifespan' in full_text):
+            if "ERROR:" in full_text and ("CancelledError" in full_text or "lifespan" in full_text):
                 # Keep buffering until we see the end of the traceback
-                if text.strip() and not text.startswith(' '):
+                if text.strip() and not text.startswith(" "):
                     # Clear buffer and skip this error
                     self.buffer = []
                 return
 
             # If buffer gets too large or we see normal output, flush it
-            if len(full_text) > 1000 or (text.strip() and not any(x in full_text for x in ['ERROR:', 'Traceback', '  File'])):
+            if len(full_text) > 1000 or (
+                text.strip() and not any(x in full_text for x in ["ERROR:", "Traceback", "  File"])
+            ):
                 self.original.write(full_text)
                 self.buffer = []
         else:
@@ -70,7 +71,7 @@ class FilteredStderr:
 
     def flush(self):
         if self.buffer and not _suppress_errors:
-            self.original.write(''.join(self.buffer))
+            self.original.write("".join(self.buffer))
             self.buffer = []
         self.original.flush()
 
@@ -83,6 +84,7 @@ sys.stderr = FilteredStderr(_original_stderr)
 
 # Configure logging
 import warnings
+
 warnings.filterwarnings("ignore")
 logging.basicConfig(level=logging.CRITICAL)
 

@@ -281,7 +281,9 @@ class SessionContext:
         if self.previous_session and self.previous_session != current:
             # Nested context - restore the outer session
             self.session_manager.set_current_session(self.previous_session, self.previous_user)
-            logger.debug(f"[SessionContext.__aexit__] Restored previous session {self.previous_session}")
+            logger.debug(
+                f"[SessionContext.__aexit__] Restored previous session {self.previous_session}"
+            )
         else:
             # Top-level context - keep the session for next request
             logger.debug(f"[SessionContext.__aexit__] Keeping current session {current}")
@@ -296,6 +298,14 @@ def require_session() -> str:
     if not session_id:
         raise SessionError("No session context available")
     return session_id
+
+
+def require_user() -> str:
+    """Get current user or raise error."""
+    user_id = _user_ctx.get()
+    if not user_id:
+        raise SessionError("No user context available - authentication required")
+    return user_id
 
 
 def get_session_or_none() -> Optional[str]:
@@ -315,23 +325,35 @@ async def with_session_auto_inject(
     Auto-inject session_id into tool arguments if needed.
 
     This replaces the complex session injection logic in the server.
+
+    NOTE: Most artifact tools now use context-based session management
+    (require_session(), get_session_or_none()) and don't need injection.
+    Only legacy tools that still accept session_id parameter should be listed here.
     """
-    # List of tools that need session injection
-    ARTIFACT_TOOLS = {
-        "upload_file",
-        "write_file",
-        "read_file",
-        "delete_file",
-        "list_session_files",
-        "list_directory",
-        "copy_file",
-        "move_file",
-        "get_file_metadata",
-        "get_presigned_url",
-        "get_storage_stats",
+    # ALL artifact tools now use context-based session management
+    # List all artifact tools that DON'T need session_id injection
+    CONTEXT_BASED_TOOLS = {
+        # All artifact tools use context (NO injection needed):
+        "upload_file",  # uses require_session/get_session_or_none
+        "write_file",  # uses require_session/get_session_or_none
+        "read_file",  # uses get_session_or_none
+        "delete_file",  # uses get_session_or_none
+        "list_session_files",  # uses require_session
+        "list_directory",  # uses require_session
+        "copy_file",  # uses require_session
+        "move_file",  # uses require_session
+        "get_file_metadata",  # uses require_session
+        "get_presigned_url",  # uses require_session
+        "get_storage_stats",  # uses get_session_or_none/get_user_or_none
+        "upload_session_file",  # uses require_session
+        "write_session_file",  # uses require_session
+        "upload_user_file",  # uses require_user
+        "write_user_file",  # uses require_user
+        "list_user_files",  # uses require_user
     }
 
-    if tool_name not in ARTIFACT_TOOLS:
+    if tool_name in CONTEXT_BASED_TOOLS:
+        # These tools use context - no injection needed
         return arguments
 
     # If session_id already provided, use it

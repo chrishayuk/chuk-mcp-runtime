@@ -1,12 +1,14 @@
 # CHUK MCP Runtime
 
+**Version 0.9.0** - Now with Storage Scopes & Persistent User Files
+
 [![PyPI](https://img.shields.io/pypi/v/chuk-mcp-runtime.svg)](https://pypi.org/project/chuk-mcp-runtime/)
 ![Python Version](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
-![Coverage](https://img.shields.io/badge/coverage-96%25-brightgreen)
+![Coverage](https://img.shields.io/badge/coverage-97%25-brightgreen)
 ![Official MCP SDK](https://img.shields.io/badge/built%20on-Official%20MCP%20SDK-blue)
 
-A robust, production-ready runtime for the official Model Context Protocol (MCP) — adds proxying, session management, JWT auth, artifact storage, and progress notifications.
+A robust, production-ready runtime for the official Model Context Protocol (MCP) — adds proxying, session management, JWT auth, **persistent user storage with scopes**, and progress notifications.
 
 > ✅ **Continuously tested against the latest official MCP SDK releases** for guaranteed protocol compatibility.
 
@@ -46,7 +48,8 @@ A robust, production-ready runtime for the official Model Context Protocol (MCP)
 - 🌐 **Universal Connectivity** - stdio, SSE, and HTTP transports supported
 - 🔧 **OpenAI Compatible** - Transform MCP tools into OpenAI function calling format
 - 📊 **Progress Notifications** - Real-time progress reporting for long operations
-- ⚡ **Production Features** - Session isolation, timeout protection, JWT auth, artifact storage
+- ⚡ **Production Features** - Session isolation, timeout protection, JWT auth
+- 📦 **Storage Scopes (NEW v0.9)** - Session (ephemeral), User (persistent), Sandbox (shared)
 
 ## Quick Start (30 seconds)
 
@@ -128,13 +131,15 @@ uv pip install tzdata
 ## What Can You Build?
 
 - **Multi-Server Gateway**: Expose multiple MCP servers (time, weather, GitHub, etc.) through one proxy
-- **Enterprise MCP Services**: Add session management, artifact storage, and JWT auth to any MCP setup
+- **Enterprise MCP Services**: Add session management, persistent storage, and JWT auth to any MCP setup
 - **OpenAI Bridge**: Transform any MCP server's tools into OpenAI-compatible function calls
 - **Hybrid Architectures**: Run local Python tools alongside remote MCP servers
 - **Progress-Aware Tools**: Build long-running operations with real-time client updates
+- **Persistent User Files (NEW)**: Store user documents, prompts, and files that survive sessions
 
 ## Table of Contents
 
+- [What's New in v0.9.0](#whats-new-in-v090)
 - [Key Concepts](#key-concepts)
 - [Configuration Reference](#configuration-reference)
 - [Proxy Configuration Examples](#proxy-configuration-examples)
@@ -148,14 +153,64 @@ uv pip install tzdata
 - [Development](#development)
 - [Troubleshooting](#troubleshooting)
 
+## What's New in v0.9.0
+
+### 🎉 Storage Scopes - The Game Changer
+
+Three storage scopes for different use cases:
+
+| Scope | Lifecycle | Use Case | Example |
+|-------|-----------|----------|---------|
+| **session** | Ephemeral (15min-24h) | Temporary work, caches | AI-generated code during chat |
+| **user** | Persistent (1 year+) | User documents, saved files | Reports, custom prompts, uploads |
+| **sandbox** | Shared (no expiry) | Templates, system files | Boilerplate, shared resources |
+
+### 🔒 Security Enhancements
+
+- ✅ Removed `session_id`/`user_id` parameters from all tools (prevents client impersonation)
+- ✅ All identity from server-side context only
+- ✅ Automatic scope-based access control in `read_file` and `delete_file`
+- ✅ User files require authentication
+
+### 🛠️ New Tools
+
+**Explicit session tools** (ephemeral):
+- `write_session_file` / `upload_session_file` - Always ephemeral
+- `list_session_files` - List session files
+
+**Explicit user tools** (persistent):
+- `write_user_file` / `upload_user_file` - Always persistent
+- `list_user_files` - Search/filter user's files
+
+**General tools** (scope parameter):
+- `write_file(scope="user")` / `upload_file(scope="user")` - Flexible scope selection
+
+### ✅ 100% Backward Compatible
+
+Existing code works unchanged - tools default to `scope="session"` (same behavior as v0.8.2).
+
+**Quick comparison:**
+
+```python
+# v0.8.2 (still works in v0.9.0)
+await write_file(content, filename)  # Ephemeral
+
+# v0.9.0 - New capabilities
+await write_user_file(content, filename)              # Persistent!
+await write_file(content, filename, scope="user")     # Also persistent
+files = await list_user_files(mime_prefix="text/*")   # Search user files
+```
+
+**See:** `CHANGELOG_V09.md` for complete release notes, `ARTIFACTS_V08_SUMMARY.md` for detailed guide.
+
 ## Core Components Overview
 
 | Component | Purpose |
 |-----------|---------|
 | **Proxy Manager** | Connects and namespaces multiple MCP servers |
 | **Session Manager** | Maintains per-user state across tool calls |
-| **Artifact Store** | Handles file persistence and isolation |
-| **Auth & Security** | Adds JWT validation and sandboxing |
+| **Artifact Store** | Handles file persistence with 3 scopes (NEW: user, sandbox) |
+| **Auth & Security** | Adds JWT validation, sandboxing, and access control |
 | **Progress Engine** | Sends real-time status updates to clients |
 
 ## Key Concepts
@@ -227,19 +282,31 @@ Different Sandbox: "staging-app"
 └── (completely isolated from production)
 ```
 
-### Artifacts
+### Artifacts (NEW in v0.9: Storage Scopes)
 
-**Artifacts** are files managed by the runtime with:
+**Artifacts** are files managed by the runtime with **three storage scopes** for different use cases:
 
-- **Session isolation** - Files scoped to specific sessions
-- **Storage backends** - Filesystem, S3, IBM Cloud Object Storage
-- **Metadata tracking** - Size, timestamps, content type
-- **Lifecycle management** - Auto-cleanup with session expiry
+#### Storage Scopes
+
+| Scope | Lifecycle | TTL | Use Case | Access Control |
+|-------|-----------|-----|----------|----------------|
+| **session** | Ephemeral | 15min-24h | Temporary work, caches, generated code | Session-isolated |
+| **user** | Persistent | 1 year+ | User documents, saved files, custom prompts | User-owned |
+| **sandbox** | Shared | No expiry | Templates, shared resources, system files | Read-only (admin writes) |
+
+**Key Features:**
+- **Session isolation** - Files scoped to specific sessions or users
+- **Storage backends** - Filesystem, S3, IBM Cloud Object Storage, VFS providers
+- **Metadata tracking** - Size, timestamps, content type, ownership
+- **Lifecycle management** - Auto-cleanup with TTL expiry
+- **Security** - No client-side identity parameters, server context only
+- **Search & filtering** - Find files by user, scope, MIME type, metadata
 
 **Storage providers:**
-- `filesystem` - Local disk (development, single-node)
-- `s3` - AWS S3 (production, distributed)
-- `ibm_cos` - IBM Cloud Object Storage (enterprise)
+- `vfs-filesystem` - Local disk with VFS support (development)
+- `vfs-s3` - AWS S3 with streaming + multipart uploads (production)
+- `vfs-sqlite` - SQLite with structured queries (embedded)
+- `memory` - In-memory (testing, ephemeral)
 
 ### Progress Notifications
 
@@ -1186,35 +1253,59 @@ session_tools:
     # ... enable other tools as needed
 ```
 
-### Artifact Storage Tools
+### Artifact Storage Tools (NEW v0.9: Scopes)
 
 **Status**: Disabled by default - must be explicitly enabled
 
-Tools for file storage and management within sessions:
+Tools for file storage and management with **three storage scopes**:
 
-- `upload_file`: Upload files with base64 content
-- `write_file`: Create or update text files
-- `read_file`: Read file contents
+**General tools** (scope parameter, default=session):
+- `upload_file(scope="session"|"user")`: Upload files with scope selection
+- `write_file(scope="session"|"user")`: Create/update files with scope selection
+- `read_file`: Read file contents (auto access control)
+- `delete_file`: Delete files (auto access control)
+
+**Explicit session tools** (always ephemeral):
+- `write_session_file`: Write to session storage
+- `upload_session_file`: Upload to session storage
 - `list_session_files`: List files in current session
-- `delete_file`: Delete files
+
+**Explicit user tools** (always persistent, NEW v0.9):
+- `write_user_file`: Write to persistent user storage
+- `upload_user_file`: Upload to persistent user storage
+- `list_user_files`: List/search user's persistent files
+
+**Other tools**:
 - `list_directory`: List directory contents
-- `copy_file`: Copy files within session
+- `copy_file`: Copy files
 - `move_file`: Move/rename files
 - `get_file_metadata`: Get file metadata
-- `get_presigned_url`: Generate presigned download URLs
-- `get_storage_stats`: Get storage statistics
+- `get_presigned_url`: Generate presigned URLs
+- `get_storage_stats`: Get storage statistics (session + user)
 
 **Enable in config**:
 ```yaml
 artifacts:
   enabled: true
-  storage_provider: "filesystem"  # or "ibm_cos", "s3", etc.
-  session_provider: "memory"      # or "redis"
+  storage_provider: "vfs-filesystem"  # or "vfs-s3", "vfs-sqlite"
+  session_provider: "memory"          # or "redis"
+
   tools:
-    upload_file: {enabled: true}
+    # General tools (flexible)
     write_file: {enabled: true}
+    upload_file: {enabled: true}
     read_file: {enabled: true}
-    # ... enable other tools as needed
+    delete_file: {enabled: true}
+
+    # Explicit session tools
+    write_session_file: {enabled: true}
+    upload_session_file: {enabled: true}
+    list_session_files: {enabled: true}
+
+    # Explicit user tools (persistent)
+    write_user_file: {enabled: true}
+    upload_user_file: {enabled: true}
+    list_user_files: {enabled: true}
 ```
 
 ## Tool Configuration
@@ -1367,22 +1458,49 @@ The client receives notifications like:
 }
 ```
 
+### Built-in Progress Support
+
+Several built-in artifact tools include progress reporting out of the box:
+
+**upload_file** - 4-step progress:
+1. Decoding base64 content
+2. Preparing upload (with file size)
+3. Uploading to storage
+4. Complete (with artifact ID)
+
+**write_file** - 3-step progress:
+1. Preparing to write
+2. Writing to storage
+3. Complete (with artifact ID)
+
+These tools automatically report progress when the client provides a `progressToken`.
+
 ### Examples
 
 See complete working examples:
 - `examples/progress_demo.py` - Basic progress reporting with visual output
 - `examples/progress_e2e_demo.py` - Full end-to-end test over MCP protocol
+- `examples/artifacts_progress_demo.py` - **NEW**: Artifact file operations with progress bars
 
 ### Testing Progress Support
 
-Run the E2E demo to see progress in action:
+Run the E2E demos to see progress in action:
 
 ```bash
-cd examples
-uv run python progress_e2e_demo.py
+# General progress demo
+uv run python examples/progress_e2e_demo.py
+
+# Artifact file operations with progress
+uv run python examples/artifacts_progress_demo.py
 ```
 
-This demonstrates:
+**artifacts_progress_demo.py** demonstrates:
+- File upload progress with visual █ progress bars
+- File write progress tracking
+- Multiple file operations with progress
+- Operations without progress tokens (graceful fallback)
+
+**progress_e2e_demo.py** demonstrates:
 - Step-based progress (counting 1-10)
 - Batch processing with progress
 - Percentage-based progress (file download simulation)
@@ -2333,12 +2451,35 @@ logging:
 ## Examples
 
 See the `examples/` directory for complete working examples:
-- Basic tool creation
-- Session management
-- Artifact storage
-- Proxy configurations
-- Combined local + remote setups
-- Progress notification demos
+
+**Artifact Storage (v0.9)**:
+- `examples/artifacts_v08_demo.py` - **NEW**: Three tool patterns demo
+- `examples/scoped_artifacts_demo.py` - **NEW**: Storage scopes demonstration
+- `examples/artifacts_memory.py` - In-memory artifact storage
+- `examples/artifacts_filesystem.py` - Filesystem storage
+
+**Session & Resources**:
+- `examples/session_demo.py` - Session management
+- `examples/session_isolation_demo.py` - Session isolation
+- `examples/resources_e2e_demo.py` - Resource management
+
+**Progress & Proxy**:
+- `examples/progress_demo.py` - Progress notifications
+- `examples/progress_e2e_demo.py` - E2E progress demo
+- `examples/artifacts_progress_demo.py` - **NEW**: Artifact file operations with progress
+- Proxy configurations - See Configuration Reference
+
+**Run examples**:
+```bash
+# Storage scopes demo
+uv run python examples/artifacts_v08_demo.py
+
+# Complete scopes demonstration
+uv run python examples/scoped_artifacts_demo.py
+
+# Artifact file operations with progress bars
+uv run python examples/artifacts_progress_demo.py
+```
 
 ## Development
 

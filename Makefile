@@ -85,7 +85,7 @@ dev-install:
 test:
 	@echo "$(BLUE)Running tests...$(NC)"
 	@if command -v uv >/dev/null 2>&1; then \
-		uv run pytest; \
+		uv run python -m pytest; \
 	elif command -v pytest >/dev/null 2>&1; then \
 		pytest; \
 	else \
@@ -96,7 +96,7 @@ test:
 coverage:
 	@echo "$(BLUE)Generating coverage report...$(NC)"
 	@if command -v uv >/dev/null 2>&1; then \
-		uv run pytest tests/ --cov=src/chuk_mcp_runtime --cov-report=html --cov-report=term --cov-report=xml; \
+		uv run python -m pytest tests/ --cov=src/chuk_mcp_runtime --cov-report=html --cov-report=term --cov-report=xml; \
 	else \
 		pytest tests/ --cov=src/chuk_mcp_runtime --cov-report=html --cov-report=term --cov-report=xml; \
 	fi

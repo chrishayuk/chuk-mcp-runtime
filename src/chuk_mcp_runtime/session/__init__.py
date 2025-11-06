@@ -34,6 +34,7 @@ from chuk_mcp_runtime.session.session_management import (
     get_user_or_none,
     # Context helpers
     require_session,
+    require_user,
     session_optional,
     session_required,
     # Tool integration
@@ -49,6 +50,7 @@ __all__ = [
     "create_session_manager",
     # Context functions
     "require_session",
+    "require_user",
     "get_session_or_none",
     "get_user_or_none",
     # Tool integration

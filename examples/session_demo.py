@@ -23,10 +23,8 @@ Run:
 import json
 import os
 import subprocess
-import sys
 import tempfile
 import time
-import uuid
 from pathlib import Path
 
 
@@ -200,7 +198,7 @@ artifacts:
 
         if "result" in response:
             session_id = extract_session_id(response)
-            print(f"✅ Created app.py")
+            print("✅ Created app.py")
             print(f"📋 Session ID: {session_id}")
         else:
             print(f"❌ Failed: {response.get('error')}")
@@ -217,9 +215,21 @@ artifacts:
         print()
 
         additional_files = [
-            {"filename": "config.json", "content": '{"debug": true, "port": 8080}', "mime": "application/json"},
-            {"filename": "README.md", "content": "# My Project\nA demo project.", "mime": "text/markdown"},
-            {"filename": "requirements.txt", "content": "httpx>=0.24.0\nfastapi>=0.100.0", "mime": "text/plain"},
+            {
+                "filename": "config.json",
+                "content": '{"debug": true, "port": 8080}',
+                "mime": "application/json",
+            },
+            {
+                "filename": "README.md",
+                "content": "# My Project\nA demo project.",
+                "mime": "text/markdown",
+            },
+            {
+                "filename": "requirements.txt",
+                "content": "httpx>=0.24.0\nfastapi>=0.100.0",
+                "mime": "text/plain",
+            },
         ]
 
         for file_data in additional_files:

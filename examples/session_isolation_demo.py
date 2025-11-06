@@ -23,7 +23,6 @@ Run:
 import json
 import os
 import subprocess
-import sys
 import tempfile
 import time
 import uuid
@@ -166,8 +165,8 @@ artifacts:
         # Start server
         print("🚀 Starting MCP server...")
         env = os.environ.copy()
-        env["ARTIFACT_STORAGE_PROVIDER"] = "memory"
-        env["ARTIFACT_SESSION_PROVIDER"] = "memory"
+        env["ARTIFACT_PROVIDER"] = "vfs-memory"
+        env["SESSION_PROVIDER"] = "memory"
 
         process = subprocess.Popen(
             ["chuk-mcp-server", "--config", str(config_file)],
@@ -222,7 +221,11 @@ artifacts:
                 "color": "🔵",
                 "files": [
                     {"filename": "index.html", "content": "<h1>Frontend</h1>", "mime": "text/html"},
-                    {"filename": "app.js", "content": "console.log('app');", "mime": "text/javascript"},
+                    {
+                        "filename": "app.js",
+                        "content": "console.log('app');",
+                        "mime": "text/javascript",
+                    },
                 ],
             },
             {
@@ -231,7 +234,7 @@ artifacts:
                 "color": "🟢",
                 "files": [
                     {"filename": "server.py", "content": "# Backend", "mime": "text/plain"},
-                    {"filename": "config.json", "content": "{}",  "mime": "application/json"},
+                    {"filename": "config.json", "content": "{}", "mime": "application/json"},
                 ],
             },
         ]
@@ -314,9 +317,9 @@ artifacts:
         print()
 
         session_a = sessions[0]
-        session_b = sessions[1]
+        sessions[1]
 
-        print(f"Query: List files in Session A using its session_id")
+        print("Query: List files in Session A using its session_id")
         files_a = list_files_in_session(process, session_a["id"], request_id)
         request_id += 1
 
@@ -324,10 +327,10 @@ artifacts:
         has_b_files = any(f["filename"] in ["server.py", "database.py"] for f in files_a)
 
         if has_b_files:
-            print(f"❌ Session A can see Session B's files (isolation broken)")
+            print("❌ Session A can see Session B's files (isolation broken)")
             isolation_working = False
         else:
-            print(f"✅ Session A cannot see Session B's files (isolation working)")
+            print("✅ Session A cannot see Session B's files (isolation working)")
 
         print()
 
@@ -357,7 +360,7 @@ artifacts:
             print("   by session in this configuration.")
             print()
             print("✅ For true isolation, use:")
-            print("   • Redis session provider (ARTIFACT_SESSION_PROVIDER=redis)")
+            print("   • Redis session provider (SESSION_PROVIDER=redis)")
             print("   • S3/filesystem storage with proper session filtering")
             print("   • Production session management configuration")
 

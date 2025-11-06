@@ -56,7 +56,6 @@ def load_env_file(env_file=".env", include_commented_ibm=True):
         in_ibm_section = False
         with open(env_path) as f:
             for line in f:
-                original_line = line
                 line = line.strip()
 
                 # Track if we're in the IBM COS section
@@ -134,7 +133,9 @@ def main():
     if not endpoint:
         missing.append("IBM_COS_ENDPOINT or S3_ENDPOINT_URL")
     if not using_aws_credentials and not using_ibm_credentials:
-        missing.append("(AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY) or (IBM_COS_APIKEY + IBM_COS_INSTANCE_CRN)")
+        missing.append(
+            "(AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY) or (IBM_COS_APIKEY + IBM_COS_INSTANCE_CRN)"
+        )
 
     if missing:
         print(f"❌ Error: Missing required environment variables: {', '.join(missing)}")
@@ -196,17 +197,17 @@ artifacts:
         # Start server
         print("🚀 Starting MCP server...")
         env = os.environ.copy()
-        env["ARTIFACT_SESSION_PROVIDER"] = "memory"
+        env["SESSION_PROVIDER"] = "memory"
 
         # Use S3 provider when AWS credentials are provided, otherwise use ibm_cos
         if using_aws_credentials:
-            env["ARTIFACT_STORAGE_PROVIDER"] = "s3"
+            env["ARTIFACT_PROVIDER"] = "s3"
             env["ARTIFACT_BUCKET"] = bucket
             env["S3_ENDPOINT_URL"] = endpoint
             env["AWS_ACCESS_KEY_ID"] = aws_access_key
             env["AWS_SECRET_ACCESS_KEY"] = aws_secret_key
         else:
-            env["ARTIFACT_STORAGE_PROVIDER"] = "ibm_cos"
+            env["ARTIFACT_PROVIDER"] = "ibm_cos"
             env["ARTIFACT_BUCKET"] = bucket
             env["IBM_COS_ENDPOINT"] = endpoint
             env["IBM_API_KEY_ID"] = api_key
@@ -289,12 +290,7 @@ artifacts:
             },
         ]
 
-        session_id = None
         for i, file_data in enumerate(files_to_create, start=2):
-            # Add session_id to subsequent requests
-            if session_id:
-                file_data["session_id"] = session_id
-
             print(f"📤 Uploading {file_data['filename']} to IBM COS...")
             write_msg = {
                 "jsonrpc": "2.0",
@@ -310,16 +306,16 @@ artifacts:
                     text = result["content"][0].get("text", "")
                     try:
                         inner = json.loads(text)
-                        # Capture session_id from first response
-                        if not session_id:
+                        # Display session info from first response
+                        if i == 2:
                             session_id = inner.get("session_id")
                             print(f"   ✅ Uploaded (session: {session_id})")
                         else:
-                            print(f"   ✅ Uploaded")
+                            print("   ✅ Uploaded")
                     except json.JSONDecodeError:
-                        print(f"   ✅ Uploaded")
+                        print("   ✅ Uploaded")
                 else:
-                    print(f"   ✅ Uploaded")
+                    print("   ✅ Uploaded")
             else:
                 print(f"   ❌ Failed: {response.get('error')}")
             print()
@@ -330,15 +326,14 @@ artifacts:
         print("=" * 80)
         print()
 
-        if not session_id:
-            print("⚠️  Warning: No session_id captured from file uploads")
-            print()
-
         list_msg = {
             "jsonrpc": "2.0",
             "id": 10,
             "method": "tools/call",
-            "params": {"name": "list_session_files", "arguments": {"session_id": session_id} if session_id else {}},
+            "params": {
+                "name": "list_session_files",
+                "arguments": {},
+            },
         }
 
         response = send_and_receive(process, list_msg, expected_id=10)

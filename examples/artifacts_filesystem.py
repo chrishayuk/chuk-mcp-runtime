@@ -165,12 +165,7 @@ artifacts:
             },
         ]
 
-        session_id = None
         for i, file_data in enumerate(files_to_create, start=2):
-            # Add session_id to subsequent requests
-            if session_id:
-                file_data["session_id"] = session_id
-
             print(f"📝 Creating {file_data['filename']}...")
             write_msg = {
                 "jsonrpc": "2.0",
@@ -186,18 +181,19 @@ artifacts:
                     text = result["content"][0].get("text", "")
                     # Parse the inner JSON to get session_id
                     import json
+
                     try:
                         inner = json.loads(text)
-                        # Capture session_id from first response
-                        if not session_id:
+                        # Display session info from first response
+                        if i == 2:
                             session_id = inner.get("session_id")
                             print(f"   ✅ Created (session: {session_id})")
                         else:
-                            print(f"   ✅ Created")
+                            print("   ✅ Created")
                     except json.JSONDecodeError:
-                        print(f"   ✅ Created")
+                        print("   ✅ Created")
                 else:
-                    print(f"   ✅ Created")
+                    print("   ✅ Created")
             else:
                 print(f"   ❌ Failed: {response.get('error')}")
             print()
@@ -212,7 +208,7 @@ artifacts:
             "jsonrpc": "2.0",
             "id": 10,
             "method": "tools/call",
-            "params": {"name": "list_session_files", "arguments": {"session_id": session_id}},
+            "params": {"name": "list_session_files", "arguments": {}},
         }
 
         response = send_and_receive(process, list_msg, expected_id=10)

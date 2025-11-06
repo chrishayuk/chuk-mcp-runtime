@@ -331,7 +331,7 @@ def main():
                 text = result["content"][0].get("text", "")
                 try:
                     inner = json.loads(text)
-                    print(f"   ✅ Created")
+                    print("   ✅ Created")
                 except json.JSONDecodeError:
                     print(f"   ✅ {response['result']}")
             else:
