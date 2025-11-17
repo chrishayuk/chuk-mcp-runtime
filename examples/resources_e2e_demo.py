@@ -160,11 +160,6 @@ artifacts:
     write_file: {enabled: true}
     upload_file: {enabled: true}
     list_session_files: {enabled: true}
-
-tools:
-  # Import custom resources module to register them
-  modules_to_import:
-    - custom_resources
 """
 
     # Create sitecustomize.py to auto-import custom resources
@@ -304,15 +299,13 @@ def main():
 
         # Create a JSON file
         print("📊 Creating data.json via write_file tool...")
+        # Note: session_id is managed server-side, not passed as parameter
         data_arguments = {
             "filename": "data.json",
             "content": '{"sales": [100, 120, 150]}',
             "mime": "application/json",
             "summary": "Sales data",
         }
-        # Add session_id if we captured it
-        if session_id:
-            data_arguments["session_id"] = session_id
 
         write_msg2 = {
             "jsonrpc": "2.0",

@@ -14,8 +14,9 @@ import os
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Set, Union
 
-# runtime
+# chuk-artifacts pydantic models
 from chuk_artifacts import ArtifactNotFoundError, ArtifactStore
+from chuk_artifacts.models import ArtifactMetadata
 
 from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY, mcp_tool
 from chuk_mcp_runtime.server.logging_config import get_logger
@@ -395,8 +396,8 @@ async def read_file(artifact_id: str, as_text: bool = True) -> Union[str, Dict[s
     store = await get_artifact_store()
 
     try:
-        # Get metadata to check scope and ownership
-        metadata = await store.metadata(artifact_id)
+        # Get metadata to check scope and ownership (returns pydantic ArtifactMetadata)
+        metadata: ArtifactMetadata = await store.metadata(artifact_id)
 
         # Access control based on scope
         if metadata.scope == "user":
@@ -421,14 +422,15 @@ async def read_file(artifact_id: str, as_text: bool = True) -> Union[str, Dict[s
         if as_text:
             return data.decode()
         else:
+            # Use pydantic model with additional runtime data
             return {
                 "content": base64.b64encode(data).decode(),
-                "filename": metadata.get("filename", "unknown"),
-                "mime": metadata.get("mime", "application/octet-stream"),
+                "filename": metadata.filename or "unknown",
+                "mime": metadata.mime,
                 "size": len(data),
                 "scope": metadata.scope,
                 "owner": metadata.owner_id,
-                "metadata": metadata,
+                "metadata": metadata.model_dump(),  # Serialize pydantic model
             }
 
     except ArtifactNotFoundError:
@@ -460,20 +462,23 @@ async def list_session_files(include_metadata: bool = False) -> List[Dict[str, A
     store = await get_artifact_store()
 
     try:
-        files = await store.list_by_session(session_id)
+        # Returns List[ArtifactMetadata] - pydantic models with dict compatibility
+        files: List[ArtifactMetadata] = await store.list_by_session(session_id)
 
         if include_metadata:
-            return files
+            # Serialize pydantic models to dicts
+            return [f.model_dump() for f in files]
         else:
+            # Return simplified view using pydantic attributes
             return [
                 {
-                    "artifact_id": f.get("artifact_id"),
-                    "filename": f.get("filename", "unknown"),
-                    "mime": f.get("mime", "unknown"),
-                    "bytes": f.get("bytes", 0),
-                    "summary": f.get("summary", ""),
-                    "scope": f.get("scope", "session"),
-                    "created": f.get("created", ""),
+                    "artifact_id": f.artifact_id,
+                    "filename": f.filename or "unknown",
+                    "mime": f.mime,
+                    "bytes": f.bytes,
+                    "summary": f.summary,
+                    "scope": f.scope,
+                    "created": f.stored_at,
                 }
                 for f in files
             ]
@@ -508,8 +513,8 @@ async def delete_file(artifact_id: str) -> str:
     store = await get_artifact_store()
 
     try:
-        # Get metadata to check scope and ownership
-        metadata = await store.metadata(artifact_id)
+        # Get metadata to check scope and ownership (returns pydantic ArtifactMetadata)
+        metadata: ArtifactMetadata = await store.metadata(artifact_id)
 
         # Access control based on scope
         if metadata.scope == "user":
@@ -563,15 +568,16 @@ async def list_directory(directory_path: str) -> List[Dict[str, Any]]:
     store = await get_artifact_store()
 
     try:
+        # Returns List[ArtifactMetadata] or similar structure
         files = await store.get_directory_contents(session_id, directory_path)
 
         return [
             {
-                "artifact_id": f.get("artifact_id"),
-                "filename": f.get("filename", "unknown"),
-                "mime": f.get("mime", "unknown"),
-                "bytes": f.get("bytes", 0),
-                "summary": f.get("summary", ""),
+                "artifact_id": f.artifact_id if hasattr(f, "artifact_id") else f.get("artifact_id"),
+                "filename": f.filename if hasattr(f, "filename") else f.get("filename", "unknown"),
+                "mime": f.mime if hasattr(f, "mime") else f.get("mime", "unknown"),
+                "bytes": f.bytes if hasattr(f, "bytes") else f.get("bytes", 0),
+                "summary": f.summary if hasattr(f, "summary") else f.get("summary", ""),
             }
             for f in files
         ]
@@ -691,8 +697,10 @@ async def get_file_metadata(artifact_id: str) -> Dict[str, Any]:
     store = await get_artifact_store()
 
     try:
-        metadata = await store.metadata(artifact_id)
-        return metadata
+        # Returns pydantic ArtifactMetadata model
+        metadata: ArtifactMetadata = await store.metadata(artifact_id)
+        # Serialize pydantic model to dict for JSON response
+        return metadata.model_dump()
 
     except ArtifactNotFoundError:
         raise ValueError(f"File not found: {artifact_id}")
@@ -763,10 +771,10 @@ async def get_storage_stats() -> Dict[str, Any]:
 
         # Add session stats if available
         if session_id:
-            session_files = await store.list_by_session(session_id)
+            session_files: List[ArtifactMetadata] = await store.list_by_session(session_id)
             stats["session_id"] = session_id
             stats["session_file_count"] = len(session_files)
-            stats["session_total_bytes"] = sum(f.get("bytes", 0) for f in session_files)
+            stats["session_total_bytes"] = sum(f.bytes for f in session_files)
 
         # Add user stats if available
         if user_id:
@@ -774,7 +782,10 @@ async def get_storage_stats() -> Dict[str, Any]:
                 user_files = await store.search(user_id=user_id, scope="user")
                 stats["user_id"] = user_id
                 stats["user_file_count"] = len(user_files)
-                stats["user_total_bytes"] = sum(f.get("bytes", 0) for f in user_files)
+                # user_files may be dicts or pydantic models depending on provider
+                stats["user_total_bytes"] = sum(
+                    f.bytes if hasattr(f, "bytes") else f.get("bytes", 0) for f in user_files
+                )
             except Exception:
                 # search may not be available on all providers
                 pass
@@ -874,23 +885,28 @@ async def list_user_files(
     store = await get_artifact_store()
 
     try:
-        # Search user's files
+        # Search user's files - returns List[ArtifactMetadata] or dicts depending on provider
         files = await store.search(
             user_id=user_id, scope="user", mime_prefix=mime_prefix, meta_filter=meta_filter
         )
 
         if include_metadata:
-            return files
+            # Serialize pydantic models to dicts if needed
+            return [f.model_dump() if hasattr(f, "model_dump") else f for f in files]
         else:
+            # Return simplified view - handle both pydantic models and dicts
             return [
                 {
-                    "artifact_id": f.get("artifact_id"),
-                    "filename": f.get("filename", "unknown"),
-                    "mime": f.get("mime", "unknown"),
-                    "bytes": f.get("bytes", 0),
-                    "summary": f.get("summary", ""),
+                    "artifact_id": f.artifact_id
+                    if hasattr(f, "artifact_id")
+                    else f.get("artifact_id"),
+                    "filename": (f.filename if hasattr(f, "filename") else f.get("filename"))
+                    or "unknown",
+                    "mime": f.mime if hasattr(f, "mime") else f.get("mime", "unknown"),
+                    "bytes": f.bytes if hasattr(f, "bytes") else f.get("bytes", 0),
+                    "summary": f.summary if hasattr(f, "summary") else f.get("summary", ""),
                     "scope": "user",
-                    "created": f.get("stored_at", ""),
+                    "created": f.stored_at if hasattr(f, "stored_at") else f.get("stored_at", ""),
                 }
                 for f in files
             ]

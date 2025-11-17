@@ -1,6 +1,6 @@
 # CHUK MCP Runtime
 
-**Version 0.9.0** - Now with Storage Scopes & Persistent User Files
+**Version 0.10.3** - Pydantic-Native Artifact Integration
 
 [![PyPI](https://img.shields.io/pypi/v/chuk-mcp-runtime.svg)](https://pypi.org/project/chuk-mcp-runtime/)
 ![Python Version](https://img.shields.io/badge/python-3.11%2B-blue)
@@ -139,6 +139,7 @@ uv pip install tzdata
 
 ## Table of Contents
 
+- [What's New in v0.10.3](#whats-new-in-v0103)
 - [What's New in v0.9.0](#whats-new-in-v090)
 - [Key Concepts](#key-concepts)
 - [Configuration Reference](#configuration-reference)
@@ -152,6 +153,56 @@ uv pip install tzdata
 - [Environment Variables](#environment-variables)
 - [Development](#development)
 - [Troubleshooting](#troubleshooting)
+
+## What's New in v0.10.3
+
+### 🎯 Pydantic-Native Artifact Integration
+
+**Enhanced type safety and better developer experience** with full pydantic integration from `chuk-artifacts` 0.8.1+:
+
+#### ✅ Type-Safe Artifact Metadata
+
+All artifact operations now use pydantic models internally:
+
+```python
+from chuk_artifacts.models import ArtifactMetadata
+
+# Metadata is now a pydantic model with full validation
+metadata: ArtifactMetadata = await store.metadata(artifact_id)
+
+# Direct attribute access (type-safe)
+print(f"Size: {metadata.bytes} bytes")
+print(f"Type: {metadata.mime}")
+print(f"Scope: {metadata.scope}")  # session | user | sandbox
+
+# Pydantic serialization
+metadata_dict = metadata.model_dump()  # Convert to dict
+metadata_json = metadata.model_json()  # Convert to JSON
+```
+
+#### 🔧 What Changed
+
+- **Internal improvements**: All artifact tools use pydantic models internally
+- **Better performance**: Direct attribute access instead of dict lookups
+- **Enhanced validation**: Automatic pydantic validation on all metadata
+- **Zero breaking changes**: All existing code works unchanged (backward compatible)
+
+#### 📊 Benefits
+
+- ✅ **Type safety**: Full type hints with pydantic models
+- ✅ **Better IDE support**: Autocomplete for all metadata fields
+- ✅ **Automatic validation**: Pydantic ensures data integrity
+- ✅ **Cleaner code**: Direct attribute access (`metadata.bytes` vs `metadata.get("bytes", 0)`)
+- ✅ **100% backward compatible**: Dict-style access still works
+
+#### 🔄 Compatibility
+
+```python
+# Both work - choose your style
+size = metadata.bytes              # ✅ Pydantic (new, recommended)
+size = metadata.get("bytes", 0)    # ✅ Dict-style (still works)
+size = metadata["bytes"]           # ✅ Also works
+```
 
 ## What's New in v0.9.0
 

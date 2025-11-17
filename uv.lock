@@ -372,7 +372,7 @@ wheels = [
 
 [[package]]
 name = "chuk-mcp-runtime"
-version = "0.10.2"
+version = "0.10.3"
 source = { editable = "." }
 dependencies = [
     { name = "chuk-artifacts" },
@@ -431,16 +431,16 @@ dev = [
 
 [[package]]
 name = "chuk-sessions"
-version = "0.5.1"
+version = "0.5.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "csrf" },
     { name = "pydantic" },
     { name = "pyyaml" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e8/ab/a2f6d95a4c9cd0762ecde0403f8e0765e8aad3b87f57a72f7d9d8a407276/chuk_sessions-0.5.1.tar.gz", hash = "sha256:342a67bb887f17611d3a256cb9c138039fcd09a80844e982a78f5277de8604be", size = 38647 }
+sdist = { url = "https://files.pythonhosted.org/packages/6c/03/ee3dbdd3adcc306543f22e5a5f82dff66644c72effd8b5b6fcd70065be52/chuk_sessions-0.5.2.tar.gz", hash = "sha256:b250e1f0e55e87f992da8badf623ed5e46aa8140c462f7724fe931bf7ad6e556", size = 38840 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b6/dc/b00a6d97b07b74dd733fc66db46b8fa54524260dd9da04206101b4a6e544/chuk_sessions-0.5.1-py3-none-any.whl", hash = "sha256:570fcecbb3a26228f8ca50c50b09ac26760b28991da7c038e5a71183f121c272", size = 31578 },
+    { url = "https://files.pythonhosted.org/packages/c7/e3/cdfe7e1da63668fd7121e3cddb6510a64ac0ac5d38471c3cdcade251872b/chuk_sessions-0.5.2-py3-none-any.whl", hash = "sha256:deb21d28ec36591ba79e804a06c8daa1246fa417ca22827d7035d97eb05bfd81", size = 31802 },
 ]
 
 [[package]]

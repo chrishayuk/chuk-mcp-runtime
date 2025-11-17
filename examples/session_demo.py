@@ -4,17 +4,17 @@ Session Management Demo
 
 Demonstrates MCP session ID management:
 - How sessions are created automatically on first write
-- Capturing and reusing session IDs across operations
-- Managing session lifecycle
+- Capturing session IDs from server responses
+- Session context is managed server-side (not passed as parameters)
 
 This demo shows practical session ID handling:
-1. Creates a file without session_id (auto-creates session)
+1. Creates a file (server auto-creates session)
 2. Captures the session_id from the response
-3. Uses that session_id to add more files
-4. Lists files using the session_id
+3. Creates more files (all in same session context)
+4. Lists files (server automatically uses session from context)
 
-Note: This demo uses memory storage provider. Session isolation may vary
-by storage/session provider configuration.
+Note: Session IDs are managed server-side via request context.
+Tools do not accept session_id as a parameter.
 
 Run:
     uv run python examples/session_demo.py
@@ -211,7 +211,8 @@ artifacts:
         print("Step 2: Adding Files to the Same Session")
         print("=" * 80)
         print()
-        print(f"Now we'll add more files using the session_id: {session_id}")
+        print(f"Now we'll add more files (server maintains session: {session_id})")
+        print("Note: Session context is managed server-side, not passed as parameters")
         print()
 
         additional_files = [
@@ -233,8 +234,7 @@ artifacts:
         ]
 
         for file_data in additional_files:
-            file_data["session_id"] = session_id
-
+            # Note: session_id is managed by the server context, not passed as parameter
             write_msg = {
                 "jsonrpc": "2.0",
                 "id": request_id,
@@ -260,11 +260,12 @@ artifacts:
         print(f"Querying session {session_id} for all files...")
         print()
 
+        # Note: list_session_files gets session from context, no parameters needed
         list_msg = {
             "jsonrpc": "2.0",
             "id": request_id,
             "method": "tools/call",
-            "params": {"name": "list_session_files", "arguments": {"session_id": session_id}},
+            "params": {"name": "list_session_files", "arguments": {}},
         }
 
         response = send_and_receive(process, list_msg, expected_id=request_id)
@@ -298,14 +299,15 @@ artifacts:
         print("✅ What we demonstrated:")
         print("   • Automatic session creation on first write_file")
         print("   • Capturing session_id from the server response")
-        print("   • Reusing session_id for subsequent operations")
-        print("   • Listing all files associated with a session")
+        print("   • Server-side session context management")
+        print("   • Listing all files in the current session")
         print()
-        print("💡 Session ID management best practices:")
-        print("   • Always capture session_id from first operation response")
-        print("   • Store session_id for the lifetime of the user interaction")
-        print("   • Pass session_id explicitly to all related operations")
-        print("   • Session IDs tie files together within a logical workspace")
+        print("💡 Session ID management (server-side context):")
+        print("   • Sessions are created automatically on first operation")
+        print("   • Session context is maintained server-side per connection")
+        print("   • Tools do NOT accept session_id as a parameter")
+        print("   • Session IDs can be tracked in responses for reference")
+        print("   • All operations within a connection use the same session")
         print()
         print("📝 Note:")
         print("   Session isolation behavior depends on your storage and session")
