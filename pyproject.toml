@@ -18,7 +18,7 @@ dependencies = [
   "cryptography>=44.0.3",
   "uvicorn>=0.34.0",
   "chuk-artifacts>=0.8.1",
-  "chuk-sessions>=0.5",
+  "chuk-sessions>=0.5.1",
   "mcp>=1.12.0",
 ]
 

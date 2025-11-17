@@ -15,8 +15,7 @@ mock_modules = {
     "chuk_tool_processor.registry": MagicMock(),
     "chuk_tool_processor.models": MagicMock(),
     "chuk_tool_processor.models.tool_call": MagicMock(),
-    "chuk_sessions": MagicMock(),
-    "chuk_sessions.provider_factory": MagicMock(),
+    # Note: chuk_sessions is now a real dependency, not mocked
 }
 
 # Add them to sys.modules
