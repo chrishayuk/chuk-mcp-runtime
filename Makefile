@@ -1,32 +1,35 @@
-.PHONY: clean clean-pyc clean-build clean-test clean-all test test-cov coverage coverage-html run build publish help install dev-install security
-
-# Colors for output
-BLUE := \033[1;34m
-GREEN := \033[1;32m
-YELLOW := \033[1;33m
-NC := \033[0m  # No Color
+.PHONY: clean clean-pyc clean-build clean-test clean-all test build publish publish-test publish-manual help install dev-install dev-install-all version bump-patch bump-minor bump-major release
 
 # Default target
 help:
 	@echo "Available targets:"
-	@echo "  clean         - Remove Python bytecode and basic artifacts"
-	@echo "  clean-all     - Deep clean everything (pyc, build, test, cache)"
-	@echo "  clean-pyc     - Remove Python bytecode files"
-	@echo "  clean-build   - Remove build artifacts"
-	@echo "  clean-test    - Remove test artifacts"
-	@echo "  install       - Install package in current environment"
-	@echo "  dev-install   - Install package in development mode"
-	@echo "  test          - Run tests"
-	@echo "  coverage      - Generate test coverage report"
-	@echo "  coverage-html - Open coverage HTML report"
-	@echo "  run           - Run the server"
-	@echo "  build         - Build the project"
-	@echo "  publish       - Build and publish to PyPI"
-	@echo "  lint          - Check code quality"
-	@echo "  format        - Fix code formatting"
-	@echo "  typecheck     - Run type checking"
-	@echo "  security      - Run security checks with bandit"
-	@echo "  check         - Run all checks (lint, typecheck, test)"
+	@echo "  clean          - Remove Python bytecode and basic artifacts"
+	@echo "  clean-all      - Deep clean everything (pyc, build, test, cache)"
+	@echo "  clean-pyc      - Remove Python bytecode files"
+	@echo "  clean-build    - Remove build artifacts"
+	@echo "  clean-test     - Remove test artifacts"
+	@echo "  install        - Install package in current environment"
+	@echo "  dev-install    - Install package in development mode"
+	@echo "  dev-install-all - Install with all optional dependencies"
+	@echo "  test           - Run tests"
+	@echo "  test-cov       - Run tests with coverage report"
+	@echo "  coverage-report - Show current coverage report"
+	@echo "  lint           - Run code linters"
+	@echo "  format         - Auto-format code"
+	@echo "  typecheck      - Run type checking"
+	@echo "  security       - Run security checks"
+	@echo "  check          - Run all checks (lint, typecheck, security, test)"
+	@echo "  build          - Build the project"
+	@echo ""
+	@echo "Release targets:"
+	@echo "  version        - Show current version"
+	@echo "  bump-patch     - Bump patch version (0.0.X)"
+	@echo "  bump-minor     - Bump minor version (0.X.0)"
+	@echo "  bump-major     - Bump major version (X.0.0)"
+	@echo "  publish        - Create tag and trigger automated release"
+	@echo "  publish-test   - Upload to TestPyPI for testing"
+	@echo "  publish-manual - Manually upload to PyPI (requires PYPI_TOKEN)"
+	@echo "  release        - Alias for publish"
 
 # Basic clean - Python bytecode and common artifacts
 clean: clean-pyc clean-build
@@ -76,49 +79,82 @@ install:
 	@echo "Installing package..."
 	pip install .
 
-# Install package in development mode
+# Install package in development mode with all dependencies
 dev-install:
 	@echo "Installing package in development mode..."
-	pip install -e .
+	@if command -v uv >/dev/null 2>&1; then \
+		uv pip install -e ".[dev]"; \
+	else \
+		pip install -e ".[dev]"; \
+	fi
+	@echo ""
+	@echo "✓ Development environment ready!"
+	@echo ""
+	@echo "Optional: Install additional features with:"
+	@echo "  pip install -e \".[websocket]\""
+	@echo ""
+	@echo "Available commands:"
+	@echo "  make test       - Run tests"
+	@echo "  make test-cov   - Run tests with coverage"
+	@echo "  make check      - Run all checks (lint, typecheck, security, test)"
+
+# Install package in development mode with ALL optional dependencies
+dev-install-all:
+	@echo "Installing package in development mode with all optional dependencies..."
+	@if command -v uv >/dev/null 2>&1; then \
+		uv pip install -e ".[dev,websocket]"; \
+	else \
+		pip install -e ".[dev,websocket]"; \
+	fi
+	@echo ""
+	@echo "✓ Development environment ready with all features!"
 
 # Run tests
 test:
-	@echo "$(BLUE)Running tests...$(NC)"
+	@echo "Running tests..."
 	@if command -v uv >/dev/null 2>&1; then \
-		uv run python -m pytest; \
+		PYTHONPATH=src uv run pytest; \
 	elif command -v pytest >/dev/null 2>&1; then \
-		pytest; \
+		PYTHONPATH=src pytest; \
 	else \
-		python -m pytest; \
+		PYTHONPATH=src python -m pytest; \
 	fi
 
-# Generate test coverage report
-coverage:
-	@echo "$(BLUE)Generating coverage report...$(NC)"
+# Show current coverage report
+coverage-report:
+	@echo "Coverage Report:"
+	@echo "================"
 	@if command -v uv >/dev/null 2>&1; then \
-		uv run python -m pytest tests/ --cov=src/chuk_mcp_runtime --cov-report=html --cov-report=term --cov-report=xml; \
+		uv run coverage report --omit="tests/*" || echo "No coverage data found. Run 'make test-cov' first."; \
 	else \
-		pytest tests/ --cov=src/chuk_mcp_runtime --cov-report=html --cov-report=term --cov-report=xml; \
+		coverage report --omit="tests/*" || echo "No coverage data found. Run 'make test-cov' first."; \
 	fi
-	@echo "$(GREEN)✓ Coverage report generated$(NC)"
-	@echo "  HTML report: htmlcov/index.html"
-	@echo "  XML report:  coverage.xml"
 
-# Open coverage HTML report
-coverage-html: coverage
-	@echo "$(BLUE)Opening coverage report...$(NC)"
-	@open htmlcov/index.html 2>/dev/null || xdg-open htmlcov/index.html 2>/dev/null || echo "Please open htmlcov/index.html manually"
-
-# Legacy alias for coverage
-test-cov: coverage
-
-# Run the server launcher
-run:
-	@echo "Running server..."
+# Run tests with coverage
+test-cov coverage:
+	@echo "Running tests with coverage..."
 	@if command -v uv >/dev/null 2>&1; then \
-		PYTHONPATH=src uv run python -m chuk_protocol_server.server_launcher; \
+		PYTHONPATH=src uv run pytest tests/ --cov=src/chuk_mcp_runtime --cov-report=html --cov-report=term --cov-report=xml --cov-report=term-missing:skip-covered; \
+		exit_code=$$?; \
+		echo ""; \
+		echo "=========================="; \
+		echo "Coverage Summary:"; \
+		echo "=========================="; \
+		uv run coverage report --omit="tests/*" | tail -5; \
+		echo ""; \
+		echo "HTML coverage report saved to: htmlcov/index.html"; \
+		exit $$exit_code; \
 	else \
-		PYTHONPATH=src python3 -m chuk_protocol_server.server_launcher; \
+		PYTHONPATH=src pytest tests/ --cov=src/chuk_mcp_runtime --cov-report=html --cov-report=term --cov-report=xml --cov-report=term-missing:skip-covered; \
+		exit_code=$$?; \
+		echo ""; \
+		echo "=========================="; \
+		echo "Coverage Summary:"; \
+		echo "=========================="; \
+		coverage report --omit="tests/*" | tail -5; \
+		echo ""; \
+		echo "HTML coverage report saved to: htmlcov/index.html"; \
+		exit $$exit_code; \
 	fi
 
 # Build the project using the pyproject.toml configuration
@@ -131,32 +167,216 @@ build: clean-build
 	fi
 	@echo "Build complete. Distributions are in the 'dist' folder."
 
-# Publish the package to PyPI using twine
-publish: build
-	@echo "Publishing package..."
-	@if [ ! -d "dist" ] || [ -z "$$(ls -A dist 2>/dev/null)" ]; then \
-		echo "Error: No distribution files found. Run 'make build' first."; \
-		exit 1; \
-	fi
-	@last_build=$$(ls -t dist/*.tar.gz dist/*.whl 2>/dev/null | head -n 2); \
-	if [ -z "$$last_build" ]; then \
-		echo "Error: No valid distribution files found."; \
-		exit 1; \
-	fi; \
-	echo "Uploading: $$last_build"; \
-	twine upload $$last_build
-	@echo "Publish complete."
+# ============================================================================
+# Version Management and Release Targets
+# ============================================================================
 
-# Publish to test PyPI
-publish-test: build
-	@echo "Publishing to test PyPI..."
-	@last_build=$$(ls -t dist/*.tar.gz dist/*.whl 2>/dev/null | head -n 2); \
-	if [ -z "$$last_build" ]; then \
-		echo "Error: No valid distribution files found."; \
+# Show current version
+version:
+	@version=$$(grep '^version = ' pyproject.toml | cut -d'"' -f2); \
+	echo "Current version: $$version"
+
+# Bump patch version (0.0.X)
+bump-patch:
+	@echo "Bumping patch version..."
+	@current=$$(grep '^version = ' pyproject.toml | cut -d'"' -f2); \
+	major=$$(echo $$current | cut -d. -f1); \
+	minor=$$(echo $$current | cut -d. -f2); \
+	patch=$$(echo $$current | cut -d. -f3 | sed 's/[^0-9].*//'); \
+	new_patch=$$(($$patch + 1)); \
+	new_version="$$major.$$minor.$$new_patch"; \
+	sed -i.bak "s/^version = \"$$current\"/version = \"$$new_version\"/" pyproject.toml && rm pyproject.toml.bak; \
+	echo "Version bumped: $$current -> $$new_version"; \
+	echo "Review the change, then run 'make publish' to release"
+
+# Bump minor version (0.X.0)
+bump-minor:
+	@echo "Bumping minor version..."
+	@current=$$(grep '^version = ' pyproject.toml | cut -d'"' -f2); \
+	major=$$(echo $$current | cut -d. -f1); \
+	minor=$$(echo $$current | cut -d. -f2 | sed 's/[^0-9].*//'); \
+	new_minor=$$(($$minor + 1)); \
+	new_version="$$major.$$new_minor.0"; \
+	sed -i.bak "s/^version = \"$$current\"/version = \"$$new_version\"/" pyproject.toml && rm pyproject.toml.bak; \
+	echo "Version bumped: $$current -> $$new_version"; \
+	echo "Review the change, then run 'make publish' to release"
+
+# Bump major version (X.0.0)
+bump-major:
+	@echo "Bumping major version..."
+	@current=$$(grep '^version = ' pyproject.toml | cut -d'"' -f2); \
+	major=$$(echo $$current | cut -d. -f1 | sed 's/[^0-9].*//'); \
+	new_major=$$(($$major + 1)); \
+	new_version="$$new_major.0.0"; \
+	sed -i.bak "s/^version = \"$$current\"/version = \"$$new_version\"/" pyproject.toml && rm pyproject.toml.bak; \
+	echo "Version bumped: $$current -> $$new_version"; \
+	echo "Review the change, then run 'make publish' to release"
+
+# Automated release - creates tag and pushes to trigger GitHub Actions
+publish:
+	@echo "Starting automated release process..."
+	@echo ""
+	@# Get current version
+	@version=$$(grep '^version = ' pyproject.toml | cut -d'"' -f2); \
+	tag="v$$version"; \
+	echo "Version: $$version"; \
+	echo "Tag: $$tag"; \
+	echo ""; \
+	\
+	echo "Pre-flight checks:"; \
+	echo "=================="; \
+	\
+	if git diff --quiet && git diff --cached --quiet; then \
+		echo "✓ Working directory is clean"; \
+	else \
+		echo "✗ Working directory has uncommitted changes"; \
+		echo ""; \
+		git status --short; \
+		echo ""; \
+		echo "Please commit or stash your changes before releasing."; \
 		exit 1; \
 	fi; \
-	echo "Uploading to test PyPI: $$last_build"; \
-	twine upload --repository testpypi $$last_build
+	\
+	if git tag -l | grep -q "^$$tag$$"; then \
+		echo "✗ Tag $$tag already exists"; \
+		echo ""; \
+		echo "To delete and recreate:"; \
+		echo "  git tag -d $$tag"; \
+		echo "  git push origin :refs/tags/$$tag"; \
+		exit 1; \
+	else \
+		echo "✓ Tag $$tag does not exist yet"; \
+	fi; \
+	\
+	current_branch=$$(git rev-parse --abbrev-ref HEAD); \
+	echo "✓ Current branch: $$current_branch"; \
+	echo ""; \
+	\
+	echo "This will:"; \
+	echo "  1. Create and push tag $$tag"; \
+	echo "  2. Trigger GitHub Actions to:"; \
+	echo "     - Create a GitHub release with changelog"; \
+	echo "     - Run tests on all platforms"; \
+	echo "     - Build and publish to PyPI"; \
+	echo ""; \
+	read -p "Continue? (y/N) " -n 1 -r; \
+	echo ""; \
+	if [[ ! $$REPLY =~ ^[Yy]$$ ]]; then \
+		echo "Aborted."; \
+		exit 1; \
+	fi; \
+	\
+	echo ""; \
+	echo "Creating and pushing tag..."; \
+	git tag -a "$$tag" -m "Release $$tag" && \
+	git push origin "$$tag" && \
+	echo "" && \
+	echo "✓ Tag pushed successfully!" && \
+	echo "" && \
+	repo_path=$$(git config --get remote.origin.url | sed 's|^https://github.com/||;s|^git@github.com:||;s|\.git$$||'); \
+	echo "GitHub Actions workflows triggered:" && \
+	echo "  - Release creation: https://github.com/$$repo_path/actions/workflows/release.yml" && \
+	echo "  - PyPI publishing: https://github.com/$$repo_path/actions/workflows/publish.yml" && \
+	echo "" && \
+	echo "Monitor progress at: https://github.com/$$repo_path/actions"
+
+# Alias for publish
+release: publish
+
+# ============================================================================
+# PyPI Publishing Targets
+# ============================================================================
+
+# Upload to TestPyPI for testing
+publish-test: build
+	@echo "Publishing to TestPyPI..."
+	@echo ""
+	@version=$$(grep '^version = ' pyproject.toml | cut -d'"' -f2); \
+	echo "Version: $$version"; \
+	echo ""; \
+	if command -v uv >/dev/null 2>&1; then \
+		uv run twine upload --repository testpypi dist/*; \
+	else \
+		python3 -m twine upload --repository testpypi dist/*; \
+	fi; \
+	echo ""; \
+	echo "✓ Uploaded to TestPyPI!"; \
+	echo ""; \
+	echo "Install with:"; \
+	echo "  pip install --index-url https://test.pypi.org/simple/ chuk-mcp-runtime==$$version"
+
+# Manual publish to PyPI (requires PYPI_TOKEN environment variable)
+publish-manual: build
+	@echo "Manual PyPI Publishing"
+	@echo "======================"
+	@echo ""
+	@version=$$(grep '^version = ' pyproject.toml | cut -d'"' -f2); \
+	tag="v$$version"; \
+	echo "Version: $$version"; \
+	echo "Tag: $$tag"; \
+	echo ""; \
+	\
+	echo "Pre-flight checks:"; \
+	echo "=================="; \
+	\
+	if git diff --quiet && git diff --cached --quiet; then \
+		echo "✓ Working directory is clean"; \
+	else \
+		echo "✗ Working directory has uncommitted changes"; \
+		echo ""; \
+		git status --short; \
+		echo ""; \
+		echo "Please commit or stash your changes before publishing."; \
+		exit 1; \
+	fi; \
+	\
+	if git tag -l | grep -q "^$$tag$$"; then \
+		echo "✓ Tag $$tag exists"; \
+	else \
+		echo "⚠ Tag $$tag does not exist yet"; \
+		echo ""; \
+		read -p "Create tag now? (y/N) " -n 1 -r; \
+		echo ""; \
+		if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
+			git tag -a "$$tag" -m "Release $$tag"; \
+			echo "✓ Tag created locally"; \
+		else \
+			echo "Continuing without creating tag..."; \
+		fi; \
+	fi; \
+	\
+	echo ""; \
+	echo "This will upload version $$version to PyPI"; \
+	echo ""; \
+	read -p "Continue? (y/N) " -n 1 -r; \
+	echo ""; \
+	if [[ ! $$REPLY =~ ^[Yy]$$ ]]; then \
+		echo "Aborted."; \
+		exit 1; \
+	fi; \
+	\
+	echo ""; \
+	echo "Uploading to PyPI..."; \
+	if [ -n "$$PYPI_TOKEN" ]; then \
+		if command -v uv >/dev/null 2>&1; then \
+			uv run twine upload --username __token__ --password "$$PYPI_TOKEN" dist/*; \
+		else \
+			python3 -m twine upload --username __token__ --password "$$PYPI_TOKEN" dist/*; \
+		fi; \
+	else \
+		if command -v uv >/dev/null 2>&1; then \
+			uv run twine upload dist/*; \
+		else \
+			python3 -m twine upload dist/*; \
+		fi; \
+	fi; \
+	echo ""; \
+	echo "✓ Published to PyPI!"; \
+	echo ""; \
+	if git tag -l | grep -q "^$$tag$$"; then \
+		echo "Push tag with: git push origin $$tag"; \
+	fi; \
+	echo "Install with: pip install chuk-mcp-runtime==$$version"
 
 # Check code quality
 lint:
@@ -199,15 +419,15 @@ typecheck:
 security:
 	@echo "Running security checks..."
 	@if command -v uv >/dev/null 2>&1; then \
-		uv run bandit -r src -f screen; \
+		uv run bandit -r src -ll; \
 	elif command -v bandit >/dev/null 2>&1; then \
-		bandit -r src -f screen; \
+		bandit -r src -ll; \
 	else \
 		echo "Bandit not found. Install with: pip install bandit"; \
 	fi
 
 # Run all checks
-check: lint typecheck test
+check: lint typecheck security test
 	@echo "All checks completed."
 
 # Show project info

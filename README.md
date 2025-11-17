@@ -3,6 +3,7 @@
 **Version 0.10.3** - Pydantic-Native Artifact Integration
 
 [![PyPI](https://img.shields.io/pypi/v/chuk-mcp-runtime.svg)](https://pypi.org/project/chuk-mcp-runtime/)
+[![Test](https://github.com/chrishayuk/chuk-mcp-runtime/actions/workflows/test.yml/badge.svg)](https://github.com/chrishayuk/chuk-mcp-runtime/actions/workflows/test.yml)
 ![Python Version](https://img.shields.io/badge/python-3.11%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Coverage](https://img.shields.io/badge/coverage-97%25-brightgreen)
@@ -2538,12 +2539,12 @@ uv run python examples/artifacts_progress_demo.py
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-org/chuk-mcp-runtime.git
+git clone https://github.com/chrishayuk/chuk-mcp-runtime.git
 cd chuk-mcp-runtime
 
 # Install in development mode
-make dev-install
-# or: uv pip install -e ".[dev]"
+make dev-install        # Install with dev dependencies
+make dev-install-all    # Install with ALL optional dependencies (websocket, etc.)
 ```
 
 ### Available Make Commands
@@ -2551,14 +2552,15 @@ make dev-install
 ```bash
 # Testing
 make test              # Run tests
-make coverage          # Generate coverage report (96% coverage)
-make coverage-html     # Open HTML coverage report
+make test-cov          # Run tests with coverage report
+make coverage-report   # Show current coverage summary
 
 # Code Quality
 make lint              # Check code with ruff
 make format            # Auto-format code
 make typecheck         # Run mypy type checking
-make check             # Run all checks (lint + typecheck + test)
+make security          # Run bandit security checks
+make check             # Run all checks (lint + typecheck + security + test)
 
 # Cleaning
 make clean             # Remove Python bytecode
@@ -2566,10 +2568,17 @@ make clean-build       # Remove build artifacts
 make clean-test        # Remove test artifacts
 make clean-all         # Deep clean everything
 
-# Building & Publishing
+# Version Management
+make version           # Show current version
+make bump-patch        # Bump patch version (0.0.X)
+make bump-minor        # Bump minor version (0.X.0)
+make bump-major        # Bump major version (X.0.0)
+
+# Release & Publishing (Automated via GitHub Actions)
+make publish           # Create tag and trigger automated release
+make publish-test      # Upload to TestPyPI for testing
+make publish-manual    # Manually upload to PyPI (requires PYPI_TOKEN)
 make build             # Build distribution packages
-make publish           # Publish to PyPI
-make publish-test      # Publish to test PyPI
 ```
 
 ### Running Tests
@@ -2578,23 +2587,59 @@ make publish-test      # Publish to test PyPI
 # Run all tests
 make test
 
+# Run with coverage report
+make test-cov
+
 # Run specific test file
-uv run pytest tests/server/test_config_loader.py
+PYTHONPATH=src uv run pytest tests/server/test_config_loader.py
 
-# Run with coverage
-make coverage
+# Show coverage summary
+make coverage-report
+```
 
-# Run tests in watch mode
-uv run pytest-watch
+### Automated Release Workflow
+
+This project uses an automated release workflow powered by GitHub Actions:
+
+```bash
+# 1. Bump the version
+make bump-patch        # For bug fixes (0.10.3 → 0.10.4)
+make bump-minor        # For new features (0.10.3 → 0.11.0)
+make bump-major        # For breaking changes (0.10.3 → 1.0.0)
+
+# 2. Review and commit the version change
+git add pyproject.toml
+git commit -m "Bump version to 0.10.4"
+git push
+
+# 3. Trigger automated release
+make publish
+# This will:
+# - Create and push a git tag (e.g., v0.10.4)
+# - Trigger GitHub Actions to:
+#   → Create a GitHub Release with changelog
+#   → Run tests on all platforms (Ubuntu, Windows, macOS)
+#   → Build and publish to PyPI automatically
+```
+
+**What happens automatically:**
+1. **`release.yml`** - Creates GitHub Release with auto-generated changelog
+2. **`publish.yml`** - Runs full test suite, builds package, publishes to PyPI
+3. **`test.yml`** - Multi-platform tests (Python 3.11, 3.12, 3.13)
+
+**Alternative: Manual PyPI Upload**
+```bash
+make publish-manual    # Requires PYPI_TOKEN environment variable
 ```
 
 ### Code Quality Standards
 
 The project maintains high quality standards:
-- **96% test coverage** - All core modules fully tested
+- **97% test coverage** - All core modules fully tested
 - **Type hints** - Full mypy type checking
 - **Ruff linting** - Fast Python linter and formatter
-- **Security** - No hardcoded credentials, secure defaults
+- **Security scanning** - Bandit security checks
+- **Multi-platform CI** - Tested on Ubuntu, Windows, macOS
 
 > 🧠 Built and continuously tested against the latest [official MCP SDK](https://github.com/modelcontextprotocol), ensuring forward compatibility.
 
@@ -2602,6 +2647,7 @@ The project maintains high quality standards:
 
 **Versioning:** SemVer. Continuously tested against the latest official MCP SDK.
 **Breaking changes:** Only in `MAJOR` releases; see GitHub Releases for migration notes.
+**CI/CD:** Automated testing and publishing via GitHub Actions.
 
 ### Docker Compose (Development)
 
