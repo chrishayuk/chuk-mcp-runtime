@@ -86,6 +86,16 @@ async def create_proxy_tool(
         __server: str = server_name,
         **kwargs,
     ):
+        # Defense in depth: Filter out session_id if it somehow gets passed
+        # (shouldn't happen with proper session management, but just in case)
+        if "session_id" in kwargs:
+            logger.warning(
+                "Unexpected session_id in remote call to %s.%s - filtering out",
+                __server,
+                __tool,
+            )
+            kwargs = {k: v for k, v in kwargs.items() if k != "session_id"}
+
         logger.debug("Calling remote %s.%s with %s", __server, __tool, kwargs)
         result = await stream_manager.call_tool(
             tool_name=__tool,

@@ -23,7 +23,7 @@ def test_load_config_default(tmp_path):
     os.chdir(tmp_path)
     try:
         config = load_config()
-        assert config.get("host", {}).get("name") == "test-server"
+        assert config.host.name == "test-server"
     finally:
         os.chdir(original_cwd)
 
@@ -44,8 +44,12 @@ def test_find_project_root(tmp_path):
 
 
 def test_get_config_value():
-    config = {"a": {"b": {"c": 123}}}
-    value = get_config_value(config, "a.b.c")
-    assert value == 123
+    from chuk_mcp_runtime.types import RuntimeConfig
+
+    config = RuntimeConfig()
+    # Test accessing existing values
+    value = get_config_value(config, "host.name")
+    assert value == "generic-mcp-server"
+
     # Verify that a missing key returns the default value
-    assert get_config_value(config, "a.x.c", default="not found") == "not found"
+    assert get_config_value(config, "nonexistent.path", default="not found") == "not found"

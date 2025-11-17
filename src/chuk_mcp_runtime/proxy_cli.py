@@ -32,7 +32,6 @@ import asyncio
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -41,6 +40,7 @@ if str(ROOT) not in sys.path:
 from chuk_mcp_runtime.proxy.manager import ProxyServerManager
 from chuk_mcp_runtime.server.config_loader import load_config
 from chuk_mcp_runtime.server.logging_config import configure_logging
+from chuk_mcp_runtime.types import MCPServerConfig, RuntimeConfig
 
 
 # ─────────────────── CLI parsing ────────────────────
@@ -90,18 +90,15 @@ def _parse_args() -> argparse.Namespace:
 
 
 # ───────────── configuration helpers ─────────────
-def _empty_config() -> Dict[str, Any]:
-    return {
-        "proxy": {
-            "enabled": True,
-            "namespace": "proxy",
-            "openai_compatible": False,  # default = dot wrappers
-        },
-        "mcp_servers": {},
-    }
+def _empty_config() -> RuntimeConfig:
+    config = RuntimeConfig()
+    config.proxy.enabled = True
+    config.proxy.namespace = "proxy"
+    config.proxy.openai_compatible = False
+    return config
 
 
-def _merge_yaml(path: Path | None) -> Dict[str, Any]:
+def _merge_yaml(path: Path | None) -> RuntimeConfig:
     if not path:
         return _empty_config()
     if not path.exists():
@@ -109,23 +106,28 @@ def _merge_yaml(path: Path | None) -> Dict[str, Any]:
     return load_config([str(path)])
 
 
-def _inject_stdio(cfg: Dict[str, Any], name: str, ns: argparse.Namespace) -> None:
-    cfg["mcp_servers"][name] = {
-        "enabled": True,
-        "type": "stdio",
-        "location": ns.cwd,
-        "command": ns.command,
-        "args": ns.args or [],
-    }
+def _inject_stdio(cfg: RuntimeConfig, name: str, ns: argparse.Namespace) -> None:
+    cfg.mcp_servers[name] = MCPServerConfig(
+        command=ns.command,
+        args=ns.args or [],
+        env={},
+        location=ns.cwd,
+        type="stdio",
+        enabled=True,
+    )
 
 
-def _inject_sse(cfg: Dict[str, Any], name: str, ns: argparse.Namespace) -> None:
-    cfg["mcp_servers"][name] = {
-        "enabled": True,
-        "type": "sse",
-        "url": ns.url,
-        "api_key": ns.api_key or os.getenv("API_KEY", ""),
-    }
+def _inject_sse(cfg: RuntimeConfig, name: str, ns: argparse.Namespace) -> None:
+    # SSE servers use a different pattern - no command/args needed
+    cfg.mcp_servers[name] = MCPServerConfig(
+        command="",  # SSE doesn't use command
+        args=[],
+        env={},
+        type="sse",
+        enabled=True,
+        url=ns.url,
+        api_key=ns.api_key or os.getenv("API_KEY", ""),
+    )
 
 
 # ─────────────────── async core ────────────────────
@@ -136,7 +138,7 @@ async def _async_main() -> None:
     cfg = _merge_yaml(Path(args.config) if args.config else None)
 
     # 2) CLI overrides / additions
-    cfg["proxy"]["openai_compatible"] = args.openai_compatible
+    cfg.proxy.openai_compatible = args.openai_compatible
 
     for name in args.stdio or []:
         _inject_stdio(cfg, name, args)
@@ -144,10 +146,10 @@ async def _async_main() -> None:
         _inject_sse(cfg, name, args)
 
     # 3) logging
-    configure_logging(cfg)
+    configure_logging(cfg.to_dict())
 
     # 4) start proxy layer
-    proxy = ProxyServerManager(cfg, project_root=str(ROOT))
+    proxy = ProxyServerManager(cfg.to_dict(), project_root=str(ROOT))
     await proxy.start_servers()
 
     try:

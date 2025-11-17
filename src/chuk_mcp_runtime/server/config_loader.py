@@ -2,16 +2,20 @@
 """
 Configuration Loader Module
 
-This module provides functionality to load and manage
-configuration files for CHUK MCP servers from multiple potential locations.
+Pydantic-based configuration loading for type safety and validation.
+Supports YAML files and dict-based configuration.
 """
 
 import logging
 import os
 import sys
-from typing import Any, Dict, Optional
+from pathlib import Path
+from typing import Any, Optional, Union
 
 import yaml
+from pydantic import ValidationError
+
+from chuk_mcp_runtime.types import RuntimeConfig
 
 # Configure logger to log to stderr
 logger = logging.getLogger("chuk_mcp_runtime.config")
@@ -23,69 +27,84 @@ stderr_handler.setFormatter(formatter)
 logger.addHandler(stderr_handler)
 
 
-def load_config(config_paths=None, default_config=None):
-    if default_config is None:
-        default_config = {
-            "host": {"name": "generic-mcp-server", "log_level": "INFO"},
-            "server": {"type": "stdio"},
-            "logging": {
-                "level": "INFO",
-                "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-                "reset_handlers": True,
-                "quiet_libraries": True,
-            },
-            "tools": {
-                "registry_module": "chuk_mcp_runtime.common.mcp_tool_decorator",
-                "registry_attr": "TOOLS_REGISTRY",
-            },
-            "proxy": {
-                "enabled": False,
-                "namespace": "proxy",
-                "keep_root_aliases": False,
-                "openai_compatible": False,
-                "only_openai_tools": False,
-            },
-            "mcp_servers": {},
-        }
+def load_config(
+    config_paths: Optional[list[Union[str, Path]]] = None,
+    default_config: Optional[RuntimeConfig] = None,
+) -> RuntimeConfig:
+    """
+    Load configuration from YAML files.
 
-    # If no explicit config_paths provided, look in common locations.
+    Args:
+        config_paths: List of paths to search for config files
+        default_config: Default configuration (RuntimeConfig)
+
+    Returns:
+        RuntimeConfig: Validated Pydantic model
+
+    Raises:
+        ValidationError: If configuration is invalid
+    """
+    # Create default config if not provided
+    if default_config is None:
+        default_config = RuntimeConfig()
+
+    # If no explicit config_paths provided, look in common locations
     if config_paths is None:
         config_paths = [
-            os.path.join(os.getcwd(), "config.yaml"),
-            os.path.join(os.getcwd(), "config.yml"),
-            os.environ.get("CHUK_MCP_CONFIG_PATH", ""),
+            Path.cwd() / "config.yaml",
+            Path.cwd() / "config.yml",
+            Path(os.environ.get("CHUK_MCP_CONFIG_PATH", "")),
         ]
-        package_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        config_paths.append(os.path.join(package_dir, "config.yaml"))
+        package_dir = Path(__file__).parent.parent
+        config_paths.append(package_dir / "config.yaml")
 
-    config_paths = [p for p in config_paths if p]
+    # Filter out empty paths
+    config_paths = [Path(p) for p in config_paths if p]
 
-    for path in config_paths:
-        if os.path.exists(path):
-            try:
-                with open(path, "r") as f:
-                    file_config = yaml.safe_load(f) or {}
+    # Try loading from each path
+    for path_item in config_paths:
+        path = Path(path_item)
+        if not path.exists():
+            continue
 
-                    # Deep merge of proxy section (if it exists in both)
-                    if "proxy" in file_config and "proxy" in default_config:
-                        for key, value in file_config["proxy"].items():
-                            default_config["proxy"][key] = value
-                        # Remove from file_config to avoid duplication
-                        del file_config["proxy"]
+        try:
+            with open(path, "r") as f:
+                file_config = yaml.safe_load(f) or {}
 
-                    # Now do the regular update for the rest of the config
-                    default_config.update(file_config)
+            # Merge file config with defaults
+            merged_dict = default_config.to_dict()
+            _deep_merge(merged_dict, file_config)
 
-                    # Ensure only_openai_tools is false if openai_compatible is false
-                    if not default_config.get("proxy", {}).get("openai_compatible", False):
-                        default_config["proxy"]["only_openai_tools"] = False
+            # Validate and return
+            config = RuntimeConfig.from_dict(merged_dict)
+            logger.debug(f"Loaded configuration from {path}")
+            return config
 
-                    return default_config
-            except Exception as e:
-                # Log warning but continue trying
-                logger.warning(f"Error loading config from {path}: {e}")
+        except ValidationError as e:
+            logger.error(f"Invalid configuration in {path}: {e}")
+            raise
+        except Exception as e:
+            logger.warning(f"Error loading config from {path}: {e}")
+            continue
 
+    # No file loaded, return default
+    logger.debug("Using default configuration")
     return default_config
+
+
+def _deep_merge(base: dict, override: dict) -> None:
+    """
+    Deep merge override dict into base dict (in-place).
+
+    Args:
+        base: Base dictionary to merge into
+        override: Dictionary with values to override
+    """
+    for key, value in override.items():
+        if key in base and isinstance(base[key], dict) and isinstance(value, dict):
+            _deep_merge(base[key], value)
+        else:
+            base[key] = value
 
 
 def find_project_root(start_dir: Optional[str] = None) -> str:
@@ -129,25 +148,33 @@ def find_project_root(start_dir: Optional[str] = None) -> str:
     return os.path.abspath(start_dir)
 
 
-def get_config_value(config: Dict[str, Any], path: str, default: Any = None) -> Any:
+def get_config_value(config: RuntimeConfig, path: str, default: Any = None) -> Any:
     """
-    Get a value from a nested configuration dictionary using a dot-separated path.
+    Get a value from configuration using a dot-separated path.
 
     Args:
-        config: Configuration dictionary.
-        path: Dot-separated path to the value (e.g., "host.name").
-        default: Default value to return if the path is not found.
+        config: Configuration (RuntimeConfig)
+        path: Dot-separated path to the value (e.g., "host.name")
+        default: Default value to return if the path is not found
 
     Returns:
-        The value at the specified path, or the default value if not found.
+        The value at the specified path, or the default value if not found
+
+    Examples:
+        >>> config = RuntimeConfig()
+        >>> get_config_value(config, "host.name")
+        'generic-mcp-server'
+        >>> get_config_value(config, "server.type")
+        <ServerType.STDIO: 'stdio'>
     """
+    # Navigate through the Pydantic model using getattr
     keys = path.split(".")
-    result = config
+    result: Any = config
 
     for key in keys:
-        if isinstance(result, dict) and key in result:
-            result = result[key]
-        else:
+        try:
+            result = getattr(result, key)
+        except AttributeError:
             return default
 
     return result

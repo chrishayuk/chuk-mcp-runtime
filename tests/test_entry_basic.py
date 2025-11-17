@@ -150,10 +150,24 @@ def patch_session_management():
     # Core classes
     entry.MCPSessionManager = EnhancedMockMCPSessionManager
     entry.SessionContext = MockSessionContext
-    entry.create_mcp_session_manager = lambda config: EnhancedMockMCPSessionManager(
-        sandbox_id=config.get("sessions", {}).get("sandbox_id") if config else None,
-        default_ttl_hours=config.get("sessions", {}).get("default_ttl_hours", 24) if config else 24,
-    )
+
+    def _create_session_manager_from_config(config):
+        """Handle both RuntimeConfig and dict."""
+        if config is None:
+            return EnhancedMockMCPSessionManager(sandbox_id=None, default_ttl_hours=24)
+        # Handle RuntimeConfig
+        if hasattr(config, "sessions"):
+            return EnhancedMockMCPSessionManager(
+                sandbox_id=config.sessions.sandbox_id,
+                default_ttl_hours=config.sessions.default_ttl_hours,
+            )
+        # Handle dict
+        return EnhancedMockMCPSessionManager(
+            sandbox_id=config.get("sessions", {}).get("sandbox_id"),
+            default_ttl_hours=config.get("sessions", {}).get("default_ttl_hours", 24),
+        )
+
+    entry.create_mcp_session_manager = _create_session_manager_from_config
 
     # Replace proxy manager with universal version
     entry.ProxyServerManager = UniversalMockProxyServerManager

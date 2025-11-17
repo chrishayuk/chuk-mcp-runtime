@@ -137,7 +137,7 @@ def patch_entry(monkeypatch):
         "load_config",
         lambda paths, default: {
             "proxy": {"enabled": True},
-            "artifacts": {"enabled": True, "tools": {"enabled": True}},
+            "artifacts": {"enabled": True},
             "sessions": {"sandbox_id": "test-sandbox"},
         },
     )

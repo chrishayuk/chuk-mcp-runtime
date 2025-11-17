@@ -27,7 +27,7 @@ from inspect import (
     isasyncgenfunction,
     iscoroutinefunction,
 )
-from typing import Any, AsyncIterator, Callable, Dict, List, Optional, Union
+from typing import Any, AsyncIterator, Callable, List, Optional, Union
 
 import uvicorn
 
@@ -76,13 +76,14 @@ from chuk_mcp_runtime.session.native_session_management import (
     create_mcp_session_manager,
     with_session_auto_inject,
 )
+from chuk_mcp_runtime.types import RuntimeConfig, ServerType, StorageProvider
 
 # ------------------------------------------------------------------------------
 # JSON Concatenation Fix Utilities
 # ------------------------------------------------------------------------------
 
 
-def parse_tool_arguments(arguments: Union[str, Dict[str, Any]]) -> Dict[str, Any]:
+def parse_tool_arguments(arguments: Union[str, dict[str, Any]]) -> dict[str, Any]:
     """
     Parse tool arguments, handling concatenated JSON strings.
 
@@ -226,21 +227,29 @@ _ARTIFACT_RX = re.compile(
 
 
 class MCPServer:
-    """Central MCP server with native session & artifact-store support."""
+    """
+    Central MCP server with native session & artifact-store support.
+
+    Type-safe, Pydantic-based configuration.
+    Fully async-native implementation.
+    """
 
     def __init__(
         self,
-        config: Dict[str, Any],
-        tools_registry: Optional[Dict[str, Callable]] = None,
+        config: Union[RuntimeConfig, dict[str, Any]],
+        tools_registry: Optional[dict[str, Callable]] = None,
     ) -> None:
-        self.config = config
-        self.logger = get_logger("chuk_mcp_runtime.server", config)
-
-        self.server_name = config.get("host", {}).get("name", "generic-mcp")
+        # Support both RuntimeConfig and dict for backwards compatibility
+        if isinstance(config, dict):
+            self.config = RuntimeConfig.from_dict(config)
+        else:
+            self.config = config
+        self.logger = get_logger("chuk_mcp_runtime.server", self.config.to_dict())
+        self.server_name = self.config.host.name
         self.tools_registry = tools_registry or TOOLS_REGISTRY
 
         # Native session management
-        self.session_manager = create_mcp_session_manager(config)
+        self.session_manager = create_mcp_session_manager(self.config)
 
         # Artifact store
         self.artifact_store: Optional[ArtifactStore] = None
@@ -253,36 +262,41 @@ class MCPServer:
 
     def _get_tool_timeout(self) -> float:
         """Pick global timeout from config/env with sane fall-back."""
-        timeout_sources = [
-            self.config.get("tools", {}).get("timeout"),
-            self.config.get("tool_timeout"),
-            os.getenv("MCP_TOOL_TIMEOUT"),
-            os.getenv("TOOL_TIMEOUT"),
-            60.0,  # default
-        ]
-        for t in timeout_sources:
-            if t is not None:
+        # Check config first (Pydantic typed)
+        if self.config.tools.timeout is not None:
+            return self.config.tools.timeout
+
+        # Check environment variables
+        for env_var in ["MCP_TOOL_TIMEOUT", "TOOL_TIMEOUT"]:
+            value = os.getenv(env_var)
+            if value is not None:
                 try:
-                    return float(t)
+                    return float(value)
                 except (ValueError, TypeError):
                     continue
+
+        # Default
         return 60.0
 
     async def _setup_artifact_store(self) -> None:
         """Setup the artifact store with native session management."""
-        cfg = self.config.get("artifacts", {})
-        storage = cfg.get("storage_provider", os.getenv("ARTIFACT_STORAGE_PROVIDER", "filesystem"))
-        session = cfg.get("session_provider", os.getenv("ARTIFACT_SESSION_PROVIDER", "memory"))
-        bucket = cfg.get("bucket", os.getenv("ARTIFACT_BUCKET", f"mcp-{self.server_name}"))
+        cfg = self.config.artifacts
 
-        # filesystem root (only when storage == filesystem)
-        if storage == "filesystem":
-            fs_root = cfg.get(
-                "filesystem_root",
-                os.getenv(
-                    "ARTIFACT_FS_ROOT",
-                    os.path.expanduser(f"~/.chuk_mcp_artifacts/{self.server_name}"),
-                ),
+        # Get storage provider (config or env)
+        storage = os.getenv("ARTIFACT_STORAGE_PROVIDER", cfg.storage_provider.value)
+
+        # Get session provider (config or env)
+        session = os.getenv("ARTIFACT_SESSION_PROVIDER", cfg.session_provider.value)
+
+        # Get bucket (config or env)
+        bucket = cfg.bucket or os.getenv("ARTIFACT_BUCKET", f"mcp-{self.server_name}")
+
+        # Filesystem root (only when storage == filesystem)
+        if storage == StorageProvider.FILESYSTEM.value:
+            fs_root = (
+                cfg.filesystem_root
+                or os.getenv("ARTIFACT_FS_ROOT")
+                or os.path.expanduser(f"~/.chuk_mcp_artifacts/{self.server_name}")
             )
             os.environ["ARTIFACT_FS_ROOT"] = fs_root  # chuk_artifacts honours this
 
@@ -299,18 +313,16 @@ class MCPServer:
             self.logger.error("Artifact-store init failed: %s", exc)
             self.artifact_store = None
 
-    async def _import_tools_registry(self) -> Dict[str, Callable]:
+    async def _import_tools_registry(self) -> dict[str, Callable]:
         """Import tools registry from configuration."""
-        mod = self.config.get("tools", {}).get(
-            "registry_module", "chuk_mcp_runtime.common.mcp_tool_decorator"
-        )
-        attr = self.config.get("tools", {}).get("registry_attr", "TOOLS_REGISTRY")
+        mod = self.config.tools.registry_module
+        attr = self.config.tools.registry_attr
 
         try:
             m = importlib.import_module(mod)
             if iscoroutinefunction(getattr(m, "initialize_tool_registry", None)):
                 await m.initialize_tool_registry()
-            registry: Dict[str, Callable] = getattr(m, attr, {})
+            registry: dict[str, Callable] = getattr(m, attr, {})
         except Exception as exc:
             self.logger.error("Unable to import tool registry: %s", exc)
             registry = {}
@@ -318,12 +330,14 @@ class MCPServer:
         update_naming_maps()
         return registry
 
-    async def _inject_session_context(self, tool_name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+    async def _inject_session_context(
+        self, tool_name: str, args: dict[str, Any], tool_func: Optional[Callable] = None
+    ) -> dict[str, Any]:
         """Auto-inject session context using native session manager."""
-        return await with_session_auto_inject(self.session_manager, tool_name, args)
+        return await with_session_auto_inject(self.session_manager, tool_name, args, tool_func)
 
     async def _execute_tool_with_timeout(
-        self, func: Callable, tool_name: str, arguments: Dict[str, Any]
+        self, func: Callable, tool_name: str, arguments: dict[str, Any]
     ) -> Any:
         """
         Execute a tool with timeout support.
@@ -357,7 +371,7 @@ class MCPServer:
         except asyncio.TimeoutError:
             raise ValueError(f"Tool '{tool_name}' timed out after {timeout:.1f}s")
 
-    async def serve(self, custom_handlers: Optional[Dict[str, Callable]] = None) -> None:
+    async def serve(self, custom_handlers: Optional[dict[str, Callable]] = None) -> None:
         """Boot the MCP server and serve forever."""
         await self._setup_artifact_store()
 
@@ -410,7 +424,7 @@ class MCPServer:
         # ----------------------------- call_tool ----------------------------- #
         @server.call_tool()
         async def call_tool(
-            name: str, arguments: Dict[str, Any]
+            name: str, arguments: dict[str, Any]
         ) -> List[Union[TextContent, ImageContent, EmbeddedResource]]:
             """Execute a tool with native session management."""
             try:
@@ -469,7 +483,7 @@ class MCPServer:
                 )
 
                 # Native session injection
-                arguments = await self._inject_session_context(resolved, arguments)
+                arguments = await self._inject_session_context(resolved, arguments, func)
 
                 # Execute within session context
                 # Use MCP session if available, otherwise use session_id from arguments
@@ -604,8 +618,7 @@ class MCPServer:
                 self.logger.error("Failed to list custom resources: %s", e)
 
             # Part 2: Add artifact resources (session-isolated)
-            artifacts_config = self.config.get("artifacts", {})
-            if artifacts_config.get("enabled", False):
+            if self.config.artifacts.enabled:
                 current_session = self.session_manager.get_current_session()
 
                 if current_session and self.artifact_store:
@@ -686,8 +699,7 @@ class MCPServer:
 
             # Try artifact resources
             if uri_str.startswith("artifact://"):
-                artifacts_config = self.config.get("artifacts", {})
-                if not artifacts_config.get("enabled", False):
+                if not self.config.artifacts.enabled:
                     raise ValueError("Artifacts not enabled")
 
                 current_session = self.session_manager.get_current_session()
@@ -742,20 +754,20 @@ class MCPServer:
         # Transport bootstrapping (stdio / SSE / StreamableHTTP)            #
         # ------------------------------------------------------------------ #
         opts = server.create_initialization_options()
-        mode = self.config.get("server", {}).get("type", "stdio")
+        mode = self.config.server.type
 
-        if mode == "stdio":
+        if mode == ServerType.STDIO:
             self.logger.info("Starting MCP (stdio) - global timeout %.1fs", self.tool_timeout)
             async with stdio_server() as (r, w):
                 await server.run(r, w, opts)
 
-        elif mode == "sse":
-            cfg = self.config.get("sse", {})
-            host, port = cfg.get("host", "0.0.0.0"), cfg.get("port", 8000)  # nosec B104 - Intentional binding for server as default
+        elif mode == ServerType.SSE:
+            cfg = self.config.sse
+            host, port = cfg.host, cfg.port
             sse_path, msg_path, health_path = (
-                cfg.get("sse_path", "/sse"),
-                cfg.get("message_path", "/messages/"),
-                cfg.get("health_path", "/health"),
+                cfg.sse_path,
+                cfg.message_path,
+                cfg.health_path,
             )
             transport = SseServerTransport(msg_path)
 
@@ -782,7 +794,7 @@ class MCPServer:
                 middleware=[
                     Middleware(
                         AuthMiddleware,
-                        auth=self.config.get("server", {}).get("auth"),
+                        auth=self.config.server.auth.value if self.config.server.auth else None,
                         health_path=health_path,
                     )
                 ],
@@ -797,16 +809,16 @@ class MCPServer:
                 uvicorn.Config(app, host=host, port=port, log_level="info")
             ).serve()
 
-        elif mode == "streamable-http":
+        elif mode == ServerType.STREAMABLE_HTTP:
             self.logger.info("Starting MCP server over streamable-http")
 
             # Get streamable-http server configuration
-            streamhttp_config = self.config.get("streamable-http", {})
-            host = streamhttp_config.get("host", "127.0.0.1")
-            port = streamhttp_config.get("port", 3000)
-            mcp_path = streamhttp_config.get("mcp_path", "/mcp")
-            json_response = streamhttp_config.get("json_response", True)
-            stateless = streamhttp_config.get("stateless", True)
+            http_cfg = self.config.streamable_http
+            host = http_cfg.host
+            port = http_cfg.port
+            mcp_path = http_cfg.mcp_path
+            json_response = http_cfg.json_response
+            stateless = http_cfg.stateless
 
             event_store = None if stateless else InMemoryEventStore()
 
@@ -849,7 +861,7 @@ class MCPServer:
                 middleware=[
                     Middleware(
                         AuthMiddleware,
-                        auth=self.config.get("server", {}).get("auth"),
+                        auth=self.config.server.auth.value if self.config.server.auth else None,
                     )
                 ],
                 lifespan=lifespan,
@@ -889,7 +901,7 @@ class MCPServer:
         return self.session_manager
 
     async def create_user_session(
-        self, user_id: str, metadata: Optional[Dict[str, Any]] = None
+        self, user_id: str, metadata: Optional[dict[str, Any]] = None
     ) -> str:
         """Create a new user session."""
         return await self.session_manager.create_session(user_id=user_id, metadata=metadata)

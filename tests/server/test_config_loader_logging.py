@@ -34,4 +34,4 @@ def test_default_config_returned_when_no_files(monkeypatch):
     # Supply a non-existent path.
     config = config_loader.load_config(config_paths=["/nonexistent/path.yaml"])
     # Check that a value from the default configuration is present.
-    assert config.get("host", {}).get("name") == "generic-mcp-server"
+    assert config.host.name == "generic-mcp-server"

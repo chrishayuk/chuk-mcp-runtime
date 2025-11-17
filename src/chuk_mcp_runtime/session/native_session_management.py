@@ -11,11 +11,14 @@ from __future__ import annotations
 import os
 import time
 from contextvars import ContextVar
-from typing import Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from chuk_sessions import SessionManager
 
 from chuk_mcp_runtime.server.logging_config import get_logger
+
+if TYPE_CHECKING:
+    from chuk_mcp_runtime.types import RuntimeConfig
 
 logger = get_logger("chuk_mcp_runtime.session.native")
 
@@ -86,7 +89,7 @@ class MCPSessionManager:
         self,
         user_id: Optional[str] = None,
         ttl_hours: Optional[int] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> str:
         """Create a new session with optional user and metadata."""
         session_id = await self._session_manager.allocate_session(
@@ -98,7 +101,7 @@ class MCPSessionManager:
         logger.debug(f"Created session {session_id} for user {user_id}")
         return session_id
 
-    async def get_session_info(self, session_id: str) -> Dict[str, Any]:
+    async def get_session_info(self, session_id: str) -> dict[str, Any]:
         """Get complete session information."""
         info = await self._session_manager.get_session_info(session_id)
         if not info:
@@ -114,7 +117,7 @@ class MCPSessionManager:
         hours = additional_hours or self.default_ttl_hours
         return await self._session_manager.extend_session_ttl(session_id, hours)
 
-    async def update_session_metadata(self, session_id: str, metadata: Dict[str, Any]) -> bool:
+    async def update_session_metadata(self, session_id: str, metadata: dict[str, Any]) -> bool:
         """Update session metadata."""
         return await self._session_manager.update_session_metadata(session_id, metadata)
 
@@ -205,11 +208,11 @@ class MCPSessionManager:
         """Clean up expired sessions."""
         return await self._session_manager.cleanup_expired_sessions()
 
-    def get_cache_stats(self) -> Dict[str, Any]:
+    def get_cache_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         return self._session_manager.get_cache_stats()
 
-    async def list_active_sessions(self) -> Dict[str, Any]:
+    async def list_active_sessions(self) -> dict[str, Any]:
         """List active sessions (admin function)."""
         stats = self.get_cache_stats()
         return {
@@ -318,18 +321,45 @@ def get_user_or_none() -> Optional[str]:
     return _user_ctx.get()
 
 
+def _is_proxy_tool(func: Any) -> bool:
+    """
+    Check if a tool is a proxy tool (forwards to remote MCP server).
+
+    Proxy tools have _proxy_server attribute set by create_proxy_tool().
+    """
+    return hasattr(func, "_proxy_server")
+
+
 async def with_session_auto_inject(
-    session_manager: MCPSessionManager, tool_name: str, arguments: Dict[str, Any]
-) -> Dict[str, Any]:
+    session_manager: MCPSessionManager,
+    tool_name: str,
+    arguments: dict[str, Any],
+    tool_func: Any = None,
+) -> dict[str, Any]:
     """
     Auto-inject session_id into tool arguments if needed.
 
-    This replaces the complex session injection logic in the server.
+    Session management strategy:
+    1. **Proxy tools** (remote MCP servers): NO injection - use MCP protocol sessions
+    2. **Context-based tools** (artifacts, etc.): NO injection - use require_session()
+    3. **Legacy internal tools**: Only inject if explicitly needed
 
-    NOTE: Most artifact tools now use context-based session management
-    (require_session(), get_session_or_none()) and don't need injection.
-    Only legacy tools that still accept session_id parameter should be listed here.
+    Args:
+        session_manager: The session manager instance
+        tool_name: Name of the tool being called
+        arguments: Tool arguments
+        tool_func: Optional tool function to inspect signature
     """
+    # PROXY TOOLS: Never inject session_id - use MCP protocol sessions
+    if tool_func and _is_proxy_tool(tool_func):
+        logger.debug(
+            f"Skipping session_id injection for proxy tool '{tool_name}' - "
+            "using MCP protocol session management"
+        )
+        # Still ensure session context is set for runtime
+        await session_manager.auto_create_session_if_needed()
+        return arguments
+
     # ALL artifact tools now use context-based session management
     # List all artifact tools that DON'T need session_id injection
     CONTEXT_BASED_TOOLS = {
@@ -363,11 +393,10 @@ async def with_session_auto_inject(
             session_manager.set_current_session(session_id)
             return arguments
 
-    # Auto-create or get current session
-    session_id = await session_manager.auto_create_session_if_needed()
-
-    # Inject session_id
-    return {**arguments, "session_id": session_id}
+    # For any other tools, just ensure session context exists
+    # Don't inject unless explicitly needed
+    await session_manager.auto_create_session_if_needed()
+    return arguments
 
 
 # ───────────────────────── Decorators ─────────────────────────────────
@@ -399,18 +428,32 @@ def session_optional(func):
 
 
 def create_mcp_session_manager(
-    config: Optional[Dict[str, Any]] = None,
+    config: Optional[Union[RuntimeConfig, dict[str, Any]]] = None,
 ) -> MCPSessionManager:
-    """Factory function to create session manager from config."""
-    if not config:
-        config = {}
+    """
+    Factory function to create session manager from config.
 
-    session_config = config.get("sessions", {})
+    Args:
+        config: RuntimeConfig instance or dict (for backwards compatibility)
+
+    Returns:
+        MCPSessionManager instance
+    """
+    if config is None:
+        # Import here to avoid circular dependency
+        from chuk_mcp_runtime.types import RuntimeConfig
+
+        config = RuntimeConfig()
+    elif isinstance(config, dict):
+        # Convert dict to RuntimeConfig for backwards compatibility
+        from chuk_mcp_runtime.types import RuntimeConfig
+
+        config = RuntimeConfig.from_dict(config)
 
     return MCPSessionManager(
-        sandbox_id=session_config.get("sandbox_id"),
-        default_ttl_hours=session_config.get("default_ttl_hours", 24),
-        auto_extend_threshold=session_config.get("auto_extend_threshold", 0.1),
+        sandbox_id=config.sessions.sandbox_id,
+        default_ttl_hours=config.sessions.default_ttl_hours,
+        auto_extend_threshold=config.sessions.auto_extend_threshold,
     )
 
 

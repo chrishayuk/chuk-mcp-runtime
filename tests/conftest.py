@@ -219,7 +219,7 @@ def mock_get_user_or_none():
 
 
 # Mock session auto-injection helper
-async def mock_with_session_auto_inject(session_manager, tool_name, args):
+async def mock_with_session_auto_inject(session_manager, tool_name, args, tool_func=None):
     """Mock session injection for artifact tools."""
     artifact_tools = {
         "upload_file",
@@ -303,10 +303,28 @@ def mock_validate_session_parameter(session_id=None, operation="unknown"):
 session_mgmt_mod = MagicMock()
 session_mgmt_mod.MCPSessionManager = MockMCPSessionManager
 session_mgmt_mod.SessionContext = MockSessionContext
-session_mgmt_mod.create_mcp_session_manager = lambda config: MockMCPSessionManager(
-    sandbox_id=config.get("sessions", {}).get("sandbox_id") if config else None,
-    default_ttl_hours=config.get("sessions", {}).get("default_ttl_hours", 24) if config else 24,
-)
+
+
+def _create_mock_session_manager(config):
+    """Create mock session manager from RuntimeConfig or dict."""
+    if config is None:
+        return MockMCPSessionManager(sandbox_id=None, default_ttl_hours=24)
+
+    # Handle RuntimeConfig
+    if hasattr(config, "sessions"):
+        return MockMCPSessionManager(
+            sandbox_id=config.sessions.sandbox_id,
+            default_ttl_hours=config.sessions.default_ttl_hours,
+        )
+
+    # Handle dict
+    return MockMCPSessionManager(
+        sandbox_id=config.get("sessions", {}).get("sandbox_id"),
+        default_ttl_hours=config.get("sessions", {}).get("default_ttl_hours", 24),
+    )
+
+
+session_mgmt_mod.create_mcp_session_manager = _create_mock_session_manager
 
 # Add context variables and helper functions
 session_mgmt_mod._session_ctx = mock_session_ctx
@@ -335,7 +353,11 @@ class MockProxyServerManager:
         self.running = {}  # Add this for compatibility
         self.config = config
         self.project_root = project_root
-        self.openai_mode = config.get("proxy", {}).get("openai_compatible", False)
+        # Handle both RuntimeConfig and dict
+        if hasattr(config, "proxy"):
+            self.openai_mode = config.proxy.openai_compatible
+        else:
+            self.openai_mode = config.get("proxy", {}).get("openai_compatible", False)
         self.tools = {"proxy.test_server.tool": MagicMock(return_value="mock result")}
 
     async def start_servers(self):
@@ -394,12 +416,18 @@ class DummyMCPServer:
         self.server_name = "test-server"
         self.registered_tools = []
         self.tools_registry = tools_registry or {}
-        # Add session manager with proper configuration
-        session_config = config.get("sessions", {})
-        self.session_manager = MockMCPSessionManager(
-            sandbox_id=session_config.get("sandbox_id"),
-            default_ttl_hours=session_config.get("default_ttl_hours", 24),
-        )
+        # Add session manager with proper configuration - handle both RuntimeConfig and dict
+        if hasattr(config, "sessions"):
+            self.session_manager = MockMCPSessionManager(
+                sandbox_id=config.sessions.sandbox_id,
+                default_ttl_hours=config.sessions.default_ttl_hours,
+            )
+        else:
+            session_config = config.get("sessions", {})
+            self.session_manager = MockMCPSessionManager(
+                sandbox_id=session_config.get("sandbox_id"),
+                default_ttl_hours=session_config.get("default_ttl_hours", 24),
+            )
 
     async def serve(self, custom_handlers=None):
         self.serve_called = True

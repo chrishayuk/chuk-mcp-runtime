@@ -23,9 +23,9 @@ def test_load_config_with_proxy_merge():
         loaded = load_config([config_path])
 
         # Verify proxy section is present and merged
-        assert "proxy" in loaded
-        assert loaded["proxy"]["enabled"] is True
-        assert loaded["proxy"]["namespace"] == "custom"
+        assert hasattr(loaded, "proxy")
+        assert loaded.proxy.enabled is True
+        assert loaded.proxy.namespace == "custom"
 
     finally:
         Path(config_path).unlink()
@@ -42,7 +42,7 @@ def test_load_config_with_openai_compatible_false():
         loaded = load_config([config_path])
 
         # Should set only_openai_tools to False when openai_compatible is False
-        assert loaded["proxy"]["only_openai_tools"] is False
+        assert loaded.proxy.only_openai_tools is False
 
     finally:
         Path(config_path).unlink()
@@ -56,7 +56,6 @@ def test_load_config_deep_proxy_merge():
                 "enabled": True,
                 "namespace": "proxy",
                 "openai_compatible": True,
-                "custom_setting": "value",
             },
             "server": {"type": "stdio"},
         }
@@ -67,10 +66,11 @@ def test_load_config_deep_proxy_merge():
         loaded = load_config([config_path])
 
         # All proxy settings should be merged
-        assert loaded["proxy"]["enabled"] is True
-        assert loaded["proxy"]["namespace"] == "proxy"
-        assert loaded["proxy"]["openai_compatible"] is True
-        assert loaded["proxy"]["custom_setting"] == "value"
+        assert loaded.proxy.enabled is True
+        assert loaded.proxy.namespace == "proxy"
+        assert loaded.proxy.openai_compatible is True
+        # Note: custom_setting would be in extra fields if we allowed them
+        # For now, extra fields are ignored in the Pydantic model
 
     finally:
         Path(config_path).unlink()
@@ -87,8 +87,8 @@ def test_load_config_no_proxy_section():
         loaded = load_config([config_path])
 
         # Should still load successfully
-        assert "server" in loaded
-        assert loaded["server"]["type"] == "stdio"
+        assert hasattr(loaded, "server")
+        assert loaded.server.type.value == "stdio"
 
     finally:
         Path(config_path).unlink()

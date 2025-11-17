@@ -10,7 +10,8 @@ import asyncio
 import os
 import sys
 from inspect import iscoroutinefunction
-from typing import Any, Iterable, List, Optional, Tuple
+from pathlib import Path
+from typing import Any, Iterable, List, Optional, Tuple, Union
 
 from dotenv import load_dotenv
 
@@ -36,6 +37,7 @@ from chuk_mcp_runtime.tools import (
     register_artifacts_tools,
     register_session_tools,
 )
+from chuk_mcp_runtime.types import RuntimeConfig
 
 logger = get_logger("chuk_mcp_runtime.entry")
 
@@ -45,9 +47,14 @@ logger = get_logger("chuk_mcp_runtime.entry")
 HAS_PROXY_SUPPORT = True  # tests may override
 
 
-def _need_proxy(cfg: dict[str, Any]) -> bool:
+def _need_proxy(cfg: Union[RuntimeConfig, dict[str, Any]]) -> bool:
     """Check if proxy functionality is needed and available."""
-    return bool(cfg.get("proxy", {}).get("enabled")) and HAS_PROXY_SUPPORT
+    # Handle both RuntimeConfig and dict (for test compatibility)
+    if isinstance(cfg, dict):
+        enabled = cfg.get("proxy", {}).get("enabled", False)
+    else:
+        enabled = cfg.proxy.enabled
+    return bool(enabled) and HAS_PROXY_SUPPORT
 
 
 # ───────────────────────────── Helper Functions ────────────────────────────
@@ -71,15 +78,18 @@ def _iter_tools(container) -> Iterable[Tuple[str, Any]]:
 
 # ───────────────────────────── Main Runtime Function ──────────────────────
 async def run_runtime_async(
-    config_paths: Optional[List[str]] = None,
-    default_config: Optional[dict[str, Any]] = None,
+    config_paths: Optional[List[Union[str, Path]]] = None,
+    default_config: Optional[RuntimeConfig] = None,
     bootstrap_components: bool = True,
 ) -> None:
     """Boot the complete CHUK MCP runtime with native session management."""
 
     # 1) Configuration and logging setup
     cfg = load_config(config_paths, default_config)
-    configure_logging(cfg)
+    # Handle both RuntimeConfig and dict (for test mocks)
+    if isinstance(cfg, dict):
+        cfg = RuntimeConfig.from_dict(cfg)
+    configure_logging(cfg.to_dict())
     project_root = find_project_root()
     logger.debug("Project root resolved to %s", project_root)
 
@@ -89,21 +99,23 @@ async def run_runtime_async(
 
     # 3) Optional component bootstrap
     if bootstrap_components and not os.getenv("NO_BOOTSTRAP"):
-        await ServerRegistry(project_root, cfg).load_server_components()
+        await ServerRegistry(project_root, cfg.to_dict()).load_server_components()
 
     # 4) Tool registry initialization
     await initialize_tool_registry()
 
     # 5) Artifact management tools
-    await register_artifacts_tools(cfg)
+    await register_artifacts_tools(cfg.to_dict())
     logger.debug("Artifact tools registration completed")
 
     # 6) Session management tools
     # Pass the session manager to session tools
-    session_cfg = cfg.copy()
-    session_cfg.setdefault("session_tools", {})["session_manager"] = session_manager
+    session_cfg_dict = cfg.to_dict()
+    if "session_tools" not in session_cfg_dict:
+        session_cfg_dict["session_tools"] = {}
+    session_cfg_dict["session_tools"]["session_manager"] = session_manager
 
-    await register_session_tools(session_cfg)
+    await register_session_tools(session_cfg_dict)
     logger.debug("Session tools registration completed")
 
     # 7) OpenAI compatibility layer
@@ -120,7 +132,7 @@ async def run_runtime_async(
     proxy_mgr = None
     if _need_proxy(cfg):
         try:
-            proxy_mgr = ProxyServerManager(cfg, project_root)
+            proxy_mgr = ProxyServerManager(cfg.to_dict(), project_root)
             await proxy_mgr.start_servers()
             if proxy_mgr.running:
                 logger.debug("Proxy layer enabled - %d server(s) booted", len(proxy_mgr.running))
@@ -187,8 +199,8 @@ async def run_runtime_async(
 
 # ───────────────────────────── Sync Wrapper ─────────────────────────────────
 def run_runtime(
-    config_paths: Optional[List[str]] = None,
-    default_config: Optional[dict[str, Any]] = None,
+    config_paths: Optional[List[Union[str, Path]]] = None,
+    default_config: Optional[RuntimeConfig] = None,
     bootstrap_components: bool = True,
 ) -> None:
     """Synchronous wrapper for the async runtime."""
@@ -208,7 +220,7 @@ def run_runtime(
 
 
 # ───────────────────────────── CLI Entry Points ────────────────────────────
-async def main_async(default_config: Optional[dict[str, Any]] = None) -> None:
+async def main_async(default_config: Optional[RuntimeConfig] = None) -> None:
     """Async CLI entry point."""
     try:
         # Parse command line arguments for config file
@@ -229,7 +241,7 @@ async def main_async(default_config: Optional[dict[str, Any]] = None) -> None:
         sys.exit(1)
 
 
-def main(default_config: Optional[dict[str, Any]] = None) -> None:
+def main(default_config: Optional[RuntimeConfig] = None) -> None:
     """Main CLI entry point."""
     try:
         asyncio.run(main_async(default_config))
