@@ -37,6 +37,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 # ── internal imports ──────────────────────────────────────────────────
+from chuk_tool_processor.registry import ToolRegistryProvider
+
 from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY
 from chuk_mcp_runtime.common.openai_compatibility import (
     OpenAIToolsAdapter,
@@ -44,7 +46,6 @@ from chuk_mcp_runtime.common.openai_compatibility import (
 )
 from chuk_mcp_runtime.proxy.manager import ProxyServerManager
 from chuk_mcp_runtime.server.config_loader import load_config
-from chuk_tool_processor.registry import ToolRegistryProvider
 
 
 # ───────────────────────── helpers ────────────────────────────────────

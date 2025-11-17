@@ -113,7 +113,7 @@ def debug_tools_list():
                         print(f"🎉 Success! Found {len(tools)} tools")
                         for i, tool in enumerate(tools[:3]):
                             print(
-                                f"   {i+1}. {tool.get('name')}: {tool.get('description', '')[:50]}..."
+                                f"   {i + 1}. {tool.get('name')}: {tool.get('description', '')[:50]}..."
                             )
                     else:
                         print(f"⚠️  Unexpected response: {parsed}")
@@ -129,7 +129,7 @@ def debug_tools_list():
                     print(f"Error output: {stderr}")
                 return
 
-            print(f"⏳ Waiting... ({i+1}/30 seconds)")
+            print(f"⏳ Waiting... ({i + 1}/30 seconds)")
 
         print("❌ Timeout after 30 seconds")
 

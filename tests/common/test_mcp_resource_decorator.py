@@ -4,6 +4,7 @@ Tests for the MCP resource decorator.
 """
 
 import pytest
+
 from chuk_mcp_runtime.common.mcp_resource_decorator import (
     RESOURCES_REGISTRY,
     clear_resources_registry,

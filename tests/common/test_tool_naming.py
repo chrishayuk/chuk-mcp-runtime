@@ -9,6 +9,7 @@ proper resolution between dot and underscore naming conventions.
 from typing import Any, Dict
 
 import pytest
+
 from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY, mcp_tool
 from chuk_mcp_runtime.common.tool_naming import (
     ToolNamingResolver,

@@ -6,6 +6,7 @@ Additional tests to improve tool_wrapper coverage.
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
 from chuk_mcp_runtime.proxy.tool_wrapper import _tp_register, create_proxy_tool
 
 

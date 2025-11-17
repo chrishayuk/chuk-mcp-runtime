@@ -11,6 +11,8 @@ from unittest.mock import patch
 
 import jwt
 import pytest
+from starlette.exceptions import HTTPException
+from starlette.status import HTTP_401_UNAUTHORIZED
 
 # Import directly from the file rather than as a module
 from chuk_mcp_runtime.common.verify_credentials import (
@@ -18,8 +20,6 @@ from chuk_mcp_runtime.common.verify_credentials import (
     JWT_SECRET_KEY,
     validate_token,
 )
-from starlette.exceptions import HTTPException
-from starlette.status import HTTP_401_UNAUTHORIZED
 
 
 # --- Test fixtures ---

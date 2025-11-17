@@ -18,7 +18,6 @@ sys.modules["chuk_mcp_runtime.tools.artifacts_tools"] = mock_artifacts_tools
 # Import our test infrastructure
 # Import the entry module
 import chuk_mcp_runtime.entry as entry
-
 from tests.conftest import (
     DummyServerRegistry,
     MockMCPSessionManager,

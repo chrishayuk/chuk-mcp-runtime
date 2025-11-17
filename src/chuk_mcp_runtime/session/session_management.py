@@ -19,9 +19,6 @@ async with SessionContext(session_manager, user_id="alice") as session_id:
 from typing import Optional
 
 # Import pydantic types from chuk_sessions
-from chuk_sessions.enums import SessionStatus
-from chuk_sessions.models import SessionMetadata
-
 from chuk_mcp_runtime.session.native_session_management import (
     # Core native classes
     MCPSessionManager,

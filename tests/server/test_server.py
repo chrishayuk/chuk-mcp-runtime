@@ -7,6 +7,7 @@ import asyncio
 from contextlib import asynccontextmanager
 
 import pytest
+
 from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY, mcp_tool
 from chuk_mcp_runtime.server.server import MCPServer
 

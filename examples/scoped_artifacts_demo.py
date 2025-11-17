@@ -45,7 +45,7 @@ async def demo_session_scope():
         meta = await store.metadata(session_file)
         print(f"   Scope: {meta.scope}")
         print(f"   Owner: {meta.owner_id or 'N/A'}")
-        print(f"   TTL: {meta.ttl}s ({meta.ttl/60:.1f} minutes)")
+        print(f"   TTL: {meta.ttl}s ({meta.ttl / 60:.1f} minutes)")
         print(f"   Session: {meta.session_id}")
         print()
         print("📝 Use case: Temporary files, caches, work in progress")

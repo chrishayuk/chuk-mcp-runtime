@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from chuk_artifacts import ArtifactNotFoundError
+
 from chuk_mcp_runtime.server.server import MCPServer
 
 

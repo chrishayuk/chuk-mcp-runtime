@@ -4,10 +4,10 @@ import os
 import sys
 from unittest.mock import AsyncMock, MagicMock
 
-import chuk_mcp_runtime.entry as entry
 import pytest
-from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY
 
+import chuk_mcp_runtime.entry as entry
+from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY
 from tests.conftest import MockProxyServerManager, run_async
 
 
@@ -406,9 +406,9 @@ def test_artifacts_integration(monkeypatch):
     registered_tool_names = server_instance.registered_tools
 
     # At least some artifact tools should be registered
-    assert any(
-        tool in registered_tool_names for tool in expected_tools
-    ), f"Expected some of {expected_tools} in {registered_tool_names}"
+    assert any(tool in registered_tool_names for tool in expected_tools), (
+        f"Expected some of {expected_tools} in {registered_tool_names}"
+    )
 
 
 def test_session_tools_integration(monkeypatch):

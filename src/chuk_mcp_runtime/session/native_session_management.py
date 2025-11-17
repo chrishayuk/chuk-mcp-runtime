@@ -14,7 +14,6 @@ from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from chuk_sessions import SessionManager
-from chuk_sessions.enums import SessionStatus
 from chuk_sessions.models import SessionMetadata
 
 from chuk_mcp_runtime.server.logging_config import get_logger

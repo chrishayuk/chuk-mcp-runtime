@@ -149,8 +149,7 @@ async def main() -> None:
         dot_name = "proxy.echo2.echo"
         if dot_name not in wrappers:
             raise RuntimeError(
-                f"{dot_name} not found - "
-                "make sure openai_compatible is set to *false* in the YAML"
+                f"{dot_name} not found - make sure openai_compatible is set to *false* in the YAML"
             )
 
         echo_wrapper = wrappers[dot_name]

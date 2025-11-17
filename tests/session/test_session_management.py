@@ -104,12 +104,12 @@ class TestIntegrationScenarios:
             user_key = f"user{i}"
 
             assert worker_key in results, f"Results missing for {worker_key}"
-            assert (
-                results[worker_key]["user_id"] == user_key
-            ), f"User ID mismatch for {worker_key}: expected {user_key}, got {results[worker_key]['user_id']}"
-            assert (
-                results[worker_key]["worker_id"] == worker_key
-            ), f"Worker ID mismatch for {worker_key}"
+            assert results[worker_key]["user_id"] == user_key, (
+                f"User ID mismatch for {worker_key}: expected {user_key}, got {results[worker_key]['user_id']}"
+            )
+            assert results[worker_key]["worker_id"] == worker_key, (
+                f"Worker ID mismatch for {worker_key}"
+            )
 
         # Verify sessions are different
         session_ids = [results[f"worker{i}"]["session_id"] for i in range(1, 4)]

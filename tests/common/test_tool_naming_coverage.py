@@ -4,6 +4,7 @@ Additional tests to improve tool_naming coverage.
 """
 
 import pytest
+
 from chuk_mcp_runtime.common.mcp_tool_decorator import TOOLS_REGISTRY, mcp_tool
 from chuk_mcp_runtime.common.tool_naming import resolve_tool_name, update_naming_maps
 

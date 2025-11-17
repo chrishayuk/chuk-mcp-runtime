@@ -109,13 +109,13 @@ def _get_type_schema(annotation: Type) -> Dict[str, Any]:
                 return _get_type_schema(non_none_type)
 
     # Handle basic types
-    if annotation == str:
+    if annotation is str:
         return {"type": "string"}
-    if annotation == int:
+    if annotation is int:
         return {"type": "integer"}
-    if annotation == float:
+    if annotation is float:
         return {"type": "number"}
-    if annotation == bool:
+    if annotation is bool:
         return {"type": "boolean"}
 
     # Handle generic types
