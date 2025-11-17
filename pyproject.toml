@@ -52,11 +52,12 @@ chuk_mcp_runtime = [
 
 [dependency-groups]
 dev = [
-    "pytest>=8.4.2",
+    "pytest>=8.3.5",
     "pytest-asyncio>=0.26.0",
-    "pytest-cov>=7.0.0",
-    "toml>=0.10.2",
-    "tomli-w>=1.2.0",
+    "pytest-cov>=6.0.0",
+    "ruff>=0.4.6",
+    "mypy>=1.13.0",
+    "bandit>=1.7.0",
 ]
 
 [tool.pytest.ini_options]
