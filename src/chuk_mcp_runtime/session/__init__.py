@@ -19,6 +19,10 @@ async with SessionContext(session_manager, user_id="alice") as session_id:
     pass
 """
 
+# Import pydantic types from chuk_sessions
+from chuk_sessions.enums import SessionStatus
+from chuk_sessions.models import SessionMetadata
+
 # Import from the main session management module for clean public API
 from chuk_mcp_runtime.session.session_management import (
     # Core classes
@@ -48,6 +52,9 @@ __all__ = [
     "SessionContext",
     "create_mcp_session_manager",
     "create_session_manager",
+    # Types from chuk_sessions (pydantic native)
+    "SessionMetadata",
+    "SessionStatus",
     # Context functions
     "require_session",
     "require_user",

@@ -14,6 +14,8 @@ from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from chuk_sessions import SessionManager
+from chuk_sessions.enums import SessionStatus
+from chuk_sessions.models import SessionMetadata
 
 from chuk_mcp_runtime.server.logging_config import get_logger
 
@@ -102,11 +104,29 @@ class MCPSessionManager:
         return session_id
 
     async def get_session_info(self, session_id: str) -> dict[str, Any]:
-        """Get complete session information."""
+        """
+        Get complete session information.
+
+        Returns session info as a dict for backwards compatibility.
+        Use get_session_metadata() for typed SessionMetadata return.
+        """
         info = await self._session_manager.get_session_info(session_id)
         if not info:
             raise SessionNotFoundError(f"Session {session_id} not found")
         return info
+
+    async def get_session_metadata(self, session_id: str) -> SessionMetadata:
+        """
+        Get complete session information as typed SessionMetadata.
+
+        This is the typed version that returns the Pydantic model directly.
+        For backwards compatibility, use get_session_info() which returns dict.
+        """
+        # Use the public method from chuk-sessions
+        metadata = await self._session_manager.get_session_metadata(session_id)
+        if not metadata:
+            raise SessionNotFoundError(f"Session {session_id} not found")
+        return metadata
 
     async def validate_session(self, session_id: str) -> bool:
         """Validate that a session exists and hasn't expired."""

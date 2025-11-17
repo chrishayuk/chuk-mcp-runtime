@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chuk-mcp-runtime"
-version = "0.10.1"
+version = "0.10.2"
 description = "Generic CHUK MCP Runtime for MCP servers"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -18,7 +18,7 @@ dependencies = [
   "cryptography>=44.0.3",
   "uvicorn>=0.34.0",
   "chuk-artifacts>=0.8.1",
-  "chuk-sessions>=0.4.2",
+  "chuk-sessions>=0.5",
   "mcp>=1.12.0",
 ]
 
