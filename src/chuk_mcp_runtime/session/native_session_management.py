@@ -209,6 +209,12 @@ class MCPSessionManager:
             created_at = info.get("created_at")
 
             if expires_at and created_at:
+                # Convert to float if they're strings
+                if isinstance(expires_at, str):
+                    expires_at = float(expires_at)
+                if isinstance(created_at, str):
+                    created_at = float(created_at)
+
                 # Calculate remaining time as percentage
                 total_ttl = expires_at - created_at
                 remaining = expires_at - time.time()
