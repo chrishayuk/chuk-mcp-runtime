@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 import time
 from contextvars import ContextVar
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from chuk_sessions import SessionManager
@@ -209,11 +210,11 @@ class MCPSessionManager:
             created_at = info.get("created_at")
 
             if expires_at and created_at:
-                # Convert to float if they're strings
+                # Convert to Unix timestamp if they're ISO format strings
                 if isinstance(expires_at, str):
-                    expires_at = float(expires_at)
+                    expires_at = datetime.fromisoformat(expires_at.replace('Z', '+00:00')).timestamp()
                 if isinstance(created_at, str):
-                    created_at = float(created_at)
+                    created_at = datetime.fromisoformat(created_at.replace('Z', '+00:00')).timestamp()
 
                 # Calculate remaining time as percentage
                 total_ttl = expires_at - created_at
