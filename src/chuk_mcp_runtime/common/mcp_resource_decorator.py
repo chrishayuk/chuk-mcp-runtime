@@ -21,6 +21,7 @@ import inspect
 from typing import Callable, Dict, Optional
 
 from mcp.types import Resource
+from pydantic import AnyUrl, TypeAdapter
 
 # Global registry for resources
 RESOURCES_REGISTRY: Dict[str, Callable] = {}
@@ -72,8 +73,12 @@ def mcp_resource(
                 )
 
         # Create Resource metadata object
+        # Convert uri string to AnyUrl for type safety
+        url_adapter: TypeAdapter[AnyUrl] = TypeAdapter(AnyUrl)
+        resource_uri = url_adapter.validate_python(uri)
+
         resource_metadata = Resource(
-            uri=uri,
+            uri=resource_uri,
             name=name,
             description=description or "",
             mimeType=mime_type or "text/plain",
