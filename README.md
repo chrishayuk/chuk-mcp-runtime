@@ -1,6 +1,6 @@
 # CHUK MCP Runtime
 
-**Version 0.10.3** - Pydantic-Native Artifact Integration
+**Version 0.10.4** - Pydantic-Native Artifact Integration
 
 [![PyPI](https://img.shields.io/pypi/v/chuk-mcp-runtime.svg)](https://pypi.org/project/chuk-mcp-runtime/)
 [![Test](https://github.com/chrishayuk/chuk-mcp-runtime/actions/workflows/test.yml/badge.svg)](https://github.com/chrishayuk/chuk-mcp-runtime/actions/workflows/test.yml)
@@ -140,7 +140,7 @@ uv pip install tzdata
 
 ## Table of Contents
 
-- [What's New in v0.10.3](#whats-new-in-v0103)
+- [What's New in v0.10.4](#whats-new-in-v0104)
 - [What's New in v0.9.0](#whats-new-in-v090)
 - [Key Concepts](#key-concepts)
 - [Configuration Reference](#configuration-reference)
@@ -155,7 +155,7 @@ uv pip install tzdata
 - [Development](#development)
 - [Troubleshooting](#troubleshooting)
 
-## What's New in v0.10.3
+## What's New in v0.10.4
 
 ### 🎯 Pydantic-Native Artifact Integration
 
