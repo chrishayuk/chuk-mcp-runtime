@@ -212,9 +212,13 @@ class MCPSessionManager:
             if expires_at and created_at:
                 # Convert to Unix timestamp if they're ISO format strings
                 if isinstance(expires_at, str):
-                    expires_at = datetime.fromisoformat(expires_at.replace('Z', '+00:00')).timestamp()
+                    expires_at = datetime.fromisoformat(
+                        expires_at.replace("Z", "+00:00")
+                    ).timestamp()
                 if isinstance(created_at, str):
-                    created_at = datetime.fromisoformat(created_at.replace('Z', '+00:00')).timestamp()
+                    created_at = datetime.fromisoformat(
+                        created_at.replace("Z", "+00:00")
+                    ).timestamp()
 
                 # Calculate remaining time as percentage
                 total_ttl = expires_at - created_at
